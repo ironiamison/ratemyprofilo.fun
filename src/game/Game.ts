@@ -253,7 +253,10 @@ export class Game {
 
     this.setupLights();
     window.addEventListener("resize", () => this.onResize());
-    document.addEventListener("pointerdown", () => sfx.unlock(), { once: true });
+    document.addEventListener("pointerdown", () => {
+      sfx.unlock();
+      sfx.startMusic();
+    }, { once: true });
     void walletService.tryReconnect(this.save.walletAddress);
     if (this.save.tutorialComplete) this.enterHome();
     else this.enterIntro();
@@ -362,7 +365,7 @@ export class Game {
     this.ui.showTutorial(this.tutorial);
     this.ui.bindMobile(this.input);
     this.focusFlight();
-    sfx.startAmbient();
+    sfx.startMusic();
     this.ui.showToast("Training rocks ahead with gold beacons · WASD to fly");
   }
 
@@ -413,6 +416,7 @@ export class Game {
   }
 
   private enterMarket(): void {
+    sfx.startMusic();
     this.mode = "market";
     const gameRoot = document.getElementById("game-root");
     if (gameRoot) gameRoot.style.visibility = "hidden";
@@ -471,7 +475,7 @@ export class Game {
     sfx.stopMining();
     sfx.stopSalvage();
     sfx.stopEngine();
-    sfx.stopAmbient();
+    sfx.startMusic();
     this.paused = false;
     this.ui.closePause();
     this.leaveGarageViewport();
@@ -489,6 +493,7 @@ export class Game {
   }
 
   private enterGarage(): void {
+    sfx.startMusic();
     this.mode = "garage";
     const gameRoot = document.getElementById("game-root");
     if (gameRoot) gameRoot.style.visibility = "visible";
@@ -649,7 +654,7 @@ export class Game {
     this.ui.showHUD(this.save, "TAB to scan · G to dock at green beacon", [], {});
     this.ui.bindMobile(this.input);
     this.focusFlight();
-    sfx.startAmbient();
+    sfx.startMusic();
   }
 
   private checkFuelCrisis(): void {
@@ -718,6 +723,7 @@ export class Game {
   }
 
   private enterMissions(): void {
+    sfx.startMusic();
     this.mode = "missions";
     this.garage.group.visible = false;
     this.hub.group.visible = false;

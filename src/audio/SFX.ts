@@ -1,3 +1,5 @@
+import { SpaceMusic } from "./Music";
+
 export class SFX {
   private ctx: AudioContext | null = null;
   private enabled = true;
@@ -6,8 +8,7 @@ export class SFX {
   private engineOsc: OscillatorNode | null = null;
   private engineBuzz: OscillatorNode | null = null;
   private engineGain: GainNode | null = null;
-  private ambientOsc: OscillatorNode | null = null;
-  private ambientGain: GainNode | null = null;
+  private music = new SpaceMusic();
 
   private ac(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
@@ -40,7 +41,7 @@ export class SFX {
       this.stopMining();
       this.stopSalvage();
       this.stopEngine();
-      this.stopAmbient();
+      this.stopMusic();
     }
   }
 
@@ -146,28 +147,24 @@ export class SFX {
     this.engineGain = null;
   }
 
-  startAmbient(): void {
-    if (!this.enabled || this.ambientOsc) return;
-    const c = this.ac();
-    this.ambientOsc = c.createOscillator();
-    this.ambientGain = c.createGain();
-    this.ambientOsc.type = "sine";
-    this.ambientOsc.frequency.value = 38;
-    this.ambientGain.gain.value = 0.012;
-    this.ambientOsc.connect(this.ambientGain);
-    this.ambientGain.connect(c.destination);
-    this.ambientOsc.start();
+  startMusic(): void {
+    if (!this.enabled || this.music.isRunning()) return;
+    this.music.start(this.ac());
   }
 
+  stopMusic(): void {
+    if (!this.music.isRunning() || !this.ctx) return;
+    this.music.stop(this.ctx);
+  }
+
+  /** @deprecated use startMusic */
+  startAmbient(): void {
+    this.startMusic();
+  }
+
+  /** @deprecated use stopMusic */
   stopAmbient(): void {
-    if (this.ambientOsc && this.ambientGain && this.ctx) {
-      try {
-        this.ambientGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
-        this.ambientOsc.stop(this.ctx.currentTime + 0.35);
-      } catch { /* */ }
-    }
-    this.ambientOsc = null;
-    this.ambientGain = null;
+    this.stopMusic();
   }
 
   scan(): void {
