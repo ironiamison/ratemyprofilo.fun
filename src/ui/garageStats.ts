@@ -36,7 +36,7 @@ export const SHAPE_STATS: Record<ShipShapeId, ShipStatBlock> = {
     speed: 160,
     turn: 70,
     jump: 12,
-    equipped: ["Salvager Cockpit", "Reinforced Hull", "Cargo Bays", "Mining Laser"],
+    equipped: ["Scavenger Cockpit", "Reinforced Hull", "Cargo Bays", "Mining Laser"],
   },
   wedge: {
     slotLabel: "FIGHTER",

@@ -25,7 +25,7 @@ export const FACTION_DETAILS: FactionDetail[] = [
     image: "/factions/faction-voidwalkers.png",
     tagline: "Nomads of the deep dark",
     lore: "Void Walkers chart routes other crews won't touch — radiation belts, fuel deserts, sectors written off as dead. Their engines sip fuel like wine. Their pilots come back when everyone else runs dry.",
-    specialty: "Long-range scouts and endurance salvagers",
+    specialty: "Long-range scouts and endurance scavengers",
     playstyle: "Boost less, explore more. Ideal for players who hate docking for fuel.",
     members: "3,800+ drift saints",
   },

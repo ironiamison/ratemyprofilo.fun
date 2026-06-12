@@ -17,12 +17,12 @@ export function getFaqHtml(): string {
   return `
     <div class="faq-panel interactive">
       <button class="faq-close interactive" id="faq-close" aria-label="Close">✕</button>
-      <h2>SALVAGER FIELD MANUAL</h2>
+      <h2>SCAVENGER FIELD MANUAL</h2>
       <p class="faq-intro">Everything you need to strip Sector K-7 clean.</p>
 
       <section>
         <h3>What is this?</h3>
-        <p>Space Salvagers is a browser space salvage game. Fly a sector, mine asteroids, loot abandoned wrecks, sell cargo at the station, upgrade your ship, and complete contracts for credits. Progress saves automatically.</p>
+        <p>Space Scavenger is a browser space scavenger game. Fly a sector, mine asteroids, loot abandoned wrecks, sell cargo at the station, upgrade your ship, and complete contracts for credits. Progress saves automatically.</p>
       </section>
 
       <section>
@@ -121,7 +121,7 @@ export function getFaqHtml(): string {
           <li><strong>Fuel</strong> drains when flying and boosting. Buy fuel at the station.</li>
           <li><strong>Hull</strong> takes radiation damage on certain wrecks. Buy repairs at the station.</li>
           <li>Some wrecks drain fuel <em>while</em> you salvage — finish fast or dock between runs.</li>
-          <li>Other players (NPC salvagers) patrol the sector — they're not hostile, just atmosphere.</li>
+          <li>Other players (NPC scavengers) patrol the sector — they're not hostile, just atmosphere.</li>
         </ul>
       </section>
 

@@ -1,5 +1,5 @@
 {
-  "name": "space-salvagers",
+  "name": "space-scavenger",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && npx gh-pages -d dist -m \"Deploy Space Salvagers\""
+    "deploy": "npm run build && npx gh-pages -d dist -m \"Deploy Space Scavenger\""
   },
   "devDependencies": {
     "@types/three": "^0.184.1",

@@ -10,7 +10,7 @@ export function renderMultiplayerComingSoonHtml(): string {
           Real multiplayer is in the works.
         </p>
         <ul class="mp-features">
-          <li>Fly the same sector with other salvagers</li>
+          <li>Fly the same sector with other scavengers</li>
           <li>See live ships, not patrol bots</li>
           <li>Split wrecks, compete on ore, cause chaos</li>
         </ul>

@@ -20,7 +20,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "scan",
     title: "Ping the void",
-    body: "Wrecks don't show on radar until you scan. Salvagers who fly blind don't fly long.",
+    body: "Wrecks don't show on radar until you scan. Scavengers who fly blind don't fly long.",
     hint: "Press TAB to scan the sector",
     check: (s) => s.hasScanned,
   },

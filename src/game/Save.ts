@@ -3,7 +3,8 @@ import { defaultShipPaint } from "./shipPaint";
 import { DEFAULT_SHIP_SHAPE, isShipShape } from "./shipShapes";
 import type { FactionId, PlayerSave } from "./types";
 
-const KEY = "space-salvagers-save";
+const KEY = "space-scavenger-save";
+const LEGACY_KEY = "space-salvagers-save";
 
 export function defaultSave(faction: FactionId = "syndicate"): PlayerSave {
   return {
@@ -52,7 +53,14 @@ function migrate(raw: Partial<PlayerSave>): PlayerSave {
 
 export function loadSave(): PlayerSave | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    let raw = localStorage.getItem(KEY);
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_KEY);
+      if (raw) {
+        localStorage.setItem(KEY, raw);
+        localStorage.removeItem(LEGACY_KEY);
+      }
+    }
     return raw ? migrate(JSON.parse(raw)) : null;
   } catch {
     return null;

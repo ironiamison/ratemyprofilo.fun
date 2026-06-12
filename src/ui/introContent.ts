@@ -7,7 +7,7 @@ export interface IntroSlide {
 export const INTRO_SLIDES: IntroSlide[] = [
   {
     tag: "ORION STATION",
-    title: "Welcome, Salvager",
+    title: "Welcome, Scavenger",
     body: "The outer rim is a graveyard of fortunes lost and found. Orion Station is your hub — the sector beyond is where captains get rich or get recycled.",
   },
   {

@@ -139,7 +139,7 @@ export function renderMarketHtml(save: PlayerSave): string {
           <div class="mkt-main">
             <section class="mkt-guide">
               <div class="mkt-guide-header">
-                <h2>SALVAGER'S HANDBOOK</h2>
+                <h2>SCAVENGER'S HANDBOOK</h2>
                 <p>How to turn space trash into Credits (CR) — explained like flight school, but for greed.</p>
               </div>
               <div class="mkt-guide-steps">${loopSteps}</div>
@@ -210,7 +210,7 @@ export function renderMarketHtml(save: PlayerSave): string {
               </div>
             </section>
 
-            <p class="mkt-foot">CR = in-game credits (off-chain). $SALVAGE = community token (home screen). Selling floods supply and lowers prices next cycle. Ship upgrades need docking at K-7 in-sector (G).</p>
+            <p class="mkt-foot">CR = in-game credits (off-chain). $SALVAGE = community token (home screen). spacescavenger.com · Selling floods supply and lowers prices next cycle. Ship upgrades need docking at K-7 in-sector (G).</p>
           </aside>
         </div>
       </div>

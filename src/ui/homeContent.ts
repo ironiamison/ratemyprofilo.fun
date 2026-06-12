@@ -56,7 +56,7 @@ export function renderHomeHtml(save: PlayerSave, tokenView?: HomeTokenView): str
       <header class="home-brand">
         <h1 class="home-title">
           <span class="title-space">SPACE</span>
-          <span class="title-salvagers">SALVAGERS</span>
+          <span class="title-scavenger">SCAVENGER</span>
         </h1>
         <div class="home-title-rule">
           <span class="rule-line"></span>
