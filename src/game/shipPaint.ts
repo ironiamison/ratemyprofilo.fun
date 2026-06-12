@@ -193,6 +193,30 @@ export function setPartColor(paint: ShipPaint, part: PaintPart, color: number): 
   return next;
 }
 
+/** Colors that visibly affect exhaust, thrusters, and salvage gear on GLB hulls. */
+export const RIG_ENGINE_COLORS = [
+  0xff8844, 0x44ddff, 0x88ff44, 0xff4444, 0xffdd44, 0x8844ff, 0xff44cc, 0xffffff,
+];
+
+export const RIG_LIGHT_COLORS = [
+  0x44eeff, 0x5cd878, 0xff6644, 0xffdd44, 0xaa66ff, 0xff44aa, 0x88aacc, 0xffffff,
+];
+
+export type RigSlot = "engine" | "lights";
+
+export function setRigColor(paint: ShipPaint, slot: RigSlot, color: number): ShipPaint {
+  const next = clonePaint(paint);
+  if (slot === "engine") {
+    next.engine = color;
+    next.thruster = color;
+  } else {
+    next.glow = color;
+    next.accent = color;
+  }
+  next.skin = "custom";
+  return next;
+}
+
 export function randomizePaint(): ShipPaint {
   const ids = Object.keys(SHIP_SKINS);
   const base = applySkin(ids[Math.floor(Math.random() * ids.length)]);

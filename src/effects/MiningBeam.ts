@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MINING_DURATION_SCALE } from "../game/miningConfig";
 
 interface Chunk {
   mesh: THREE.Mesh;
@@ -102,12 +103,12 @@ export class MiningBeam {
       vel.x += (Math.random() - 0.5) * 2;
       vel.y += (Math.random() - 0.5) * 2;
       vel.z += (Math.random() - 0.5) * 2;
-      this.chunks.push({ mesh, vel, life: 0.7 + Math.random() * 0.3 });
+      this.chunks.push({ mesh, vel, life: (0.7 + Math.random() * 0.3) * MINING_DURATION_SCALE });
     }
   }
 
   update(from: THREE.Vector3, to: THREE.Vector3, dt: number, intensity = 1): void {
-    this.pulse += dt * 14;
+    this.pulse += dt * (14 / MINING_DURATION_SCALE);
     if (this.active) {
       const mid = from.clone().add(to).multiplyScalar(0.5);
       const dist = from.distanceTo(to);

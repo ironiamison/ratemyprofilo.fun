@@ -28,6 +28,7 @@ export function renderRadarNearest(pois: RadarPOI[]): string {
   const label =
     nearest.kind === "station" ? "STATION"
     : nearest.kind === "asteroid" ? "ROCK"
+    : nearest.kind === "player" ? "PILOT"
     : nearest.kind === "npc" ? "SHIP"
     : "WRECK";
   return `${label} · ${nearest.name} · ${Math.round(nearest.dist)}m`;

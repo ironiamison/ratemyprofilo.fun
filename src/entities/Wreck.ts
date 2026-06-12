@@ -58,6 +58,13 @@ export class Wreck {
     this.group.rotation.y = (def.id.charCodeAt(0) % 10) * 0.15;
   }
 
+  markSalvaged(): void {
+    this.salvaged = true;
+    this.salvageProgress = this.salvageRequired;
+    const m = this.beaconMesh.material as THREE.MeshStandardMaterial;
+    m.emissiveIntensity = 0.05;
+  }
+
   salvage(dt: number): number {
     if (this.salvaged) return 0;
     this.salvageProgress += dt * 12;

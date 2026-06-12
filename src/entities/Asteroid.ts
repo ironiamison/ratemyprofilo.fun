@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { cloneKenney, kenneyReady, KENNEY_ASTEROIDS } from "../assets/kenneyLoader";
+import {
+  MINING_DURATION_SCALE,
+  ORE_CHUNK_BREAK_RATE,
+  ORE_DRILL_RATE,
+  ORE_WOBBLE_RATE,
+} from "../game/miningConfig";
 import { addGlow, COLORS, hullMat, seededRandom } from "../utils/voxel";
 
 export class Asteroid {
@@ -121,7 +127,7 @@ export class Asteroid {
     if (this.ring && ringMat) {
       const target = this.miningActive ? 0.55 : 0;
       ringMat.opacity = THREE.MathUtils.lerp(ringMat.opacity, target, dt * 8);
-      this.ring.rotation.z += dt * (this.miningActive ? 2.2 : 0.4);
+      this.ring.rotation.z += dt * (this.miningActive ? 2.2 / MINING_DURATION_SCALE : 0.4);
     }
 
     if (this.wobble > 0) {
@@ -145,11 +151,30 @@ export class Asteroid {
     }
   }
 
+  /** Apply ore state from a co-op partner. */
+  syncOre(ore: number, depleted: boolean): void {
+    this.ore = Math.max(0, ore);
+    this.depleted = depleted;
+    if (depleted) {
+      this.ore = 0;
+      this.group.visible = false;
+      return;
+    }
+    this.group.visible = true;
+    const ratio = this.oreRatio();
+    for (const c of this.oreCrystals) {
+      c.visible = ratio > 0.08;
+      const m = c.material as THREE.MeshStandardMaterial;
+      m.emissiveIntensity = 0.2 + ratio * 0.5;
+      c.scale.setScalar(0.35 + ratio * 0.65);
+    }
+  }
+
   mine(dt: number, rateMul = 1): number {
     if (this.depleted) return 0;
-    const extracted = Math.min(this.ore, dt * 3.2 * rateMul);
+    const extracted = Math.min(this.ore, dt * ORE_DRILL_RATE * rateMul);
     this.ore -= extracted;
-    this.wobble = Math.min(1, this.wobble + dt * 3);
+    this.wobble = Math.min(1, this.wobble + dt * ORE_WOBBLE_RATE);
 
     const ratio = this.oreRatio();
     for (const c of this.oreCrystals) {
@@ -159,7 +184,7 @@ export class Asteroid {
       c.scale.setScalar(0.4 + ratio * 0.6);
     }
 
-    if (Math.random() < dt * 4 * rateMul && this.chunks.length > 1) {
+    if (Math.random() < dt * ORE_CHUNK_BREAK_RATE * rateMul && this.chunks.length > 1) {
       const mesh = this.chunks[1 + Math.floor(Math.random() * (this.chunks.length - 1))];
       mesh.scale.multiplyScalar(0.97);
       const hm = mesh.material as THREE.MeshStandardMaterial;

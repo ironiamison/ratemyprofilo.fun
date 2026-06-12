@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { sfx } from "../audio/SFX";
-import { isSkinUnlocked } from "../chain/holderPerks";
 import { walletService } from "../chain/wallet";
 import {
   advanceMarket,
@@ -19,10 +18,9 @@ import { Input as InputClass } from "./Input";
 import { claimableMissions, claimMission } from "./missions";
 import { loadSave, resetSave, writeSave } from "./Save";
 import {
-  applySkin,
   clonePaint,
-  randomizePaint,
-  setPartColor,
+  setRigColor,
+  type RigSlot,
   type ShipPaint,
 } from "./shipPaint";
 import type { ShipShapeId } from "./shipShapes";
@@ -35,8 +33,14 @@ import { applyGarageViewOffset, bindGarageViewport } from "./garageViewport";
 import { Garage } from "../visuals/Garage";
 import { OrionStation } from "../visuals/OrionStation";
 import { clearTextureCache } from "../assets/proceduralTextures";
+import { whenPolyyReady } from "../assets/polyyLoader";
 import { createSkyDome } from "../visuals/SkyDome";
 import { COLORS } from "../utils/voxel";
+import { LocalSession } from "../net/LocalSession";
+import type { MultiplayerSession } from "../net/types";
+import { getMpServerUrl, saveMpServerUrl } from "../net/mpConfig";
+import { WebSocketSession } from "../net/WebSocketSession";
+import { SHAPE_STATS } from "../ui/garageStats";
 
 type Mode = "intro" | "training" | "home" | "factions" | "market" | "missions" | "settings" | "garage" | "sector" | "station";
 
@@ -70,6 +74,16 @@ export class Game {
   private tutorial: TutorialController | null = null;
   private paused = false;
   private garageViewportUnbind: (() => void) | null = null;
+  private mpSession: MultiplayerSession | null = null;
+  private coopActive = false;
+  private raceActive = false;
+  private netTimer = 0;
+  private raceSyncTimer = 0;
+  private garageDirty = false;
+  private localLobbyMode: "coop" | "race" | null = null;
+  private mpPeerCount = 1;
+  private onlineRoomRole: "host" | "guest" | null = null;
+  private pendingRaceGo: number | null = null;
 
   constructor(container: HTMLElement, uiRoot: HTMLElement) {
     this.input = new InputClass();
@@ -82,6 +96,7 @@ export class Game {
     this.garage = new Garage();
     this.hub = new OrionStation();
     this.refreshGarageShip();
+    void whenPolyyReady.then(() => this.refreshShipPreviews());
 
     this.ui.setHandlers({
       onHomeNav: (nav) => this.handleHomeNav(nav),
@@ -151,14 +166,8 @@ export class Game {
         this.ui.showToast("Progress reset");
         this.ui.showSettings(this.save);
       },
-      onGarageLaunch: (faction, paint, shape) => this.launch(faction, paint, shape),
-      onGarageSkin: (id) => {
-        if (!isSkinUnlocked(id, walletService.tier)) {
-          this.ui.showToast("Hold $SALVAGE to unlock this paint");
-          return;
-        }
-        this.setGaragePaint(applySkin(id));
-      },
+      onGarageLaunch: () => this.launchFromGarage(),
+      onGarageRig: (slot, color) => this.setGaragePaint(setRigColor(this.garagePaint, slot, color), slot),
       onWalletConnect: async () => {
         const ok = await walletService.connect();
         if (!ok) {
@@ -186,24 +195,45 @@ export class Game {
       onHudHome: () => this.openPauseMenu(),
       onFuelCrisisBurn: () => this.handleFuelCrisisBurn(),
       onFuelCrisisDismiss: () => this.handleFuelCrisisDismiss(),
-      onGarageColor: (part, color) => this.setGaragePaint(setPartColor(this.garagePaint, part, color)),
-      onGarageRandom: () => this.setGaragePaint(randomizePaint()),
+      onMultiplayerLocal: () => this.readyLocalCoop(),
+      onMultiplayerLocalEnter: () => this.enterLocalCoop(),
+      onMultiplayerHost: (serverUrl) => this.hostOnlineRoom(serverUrl),
+      onMultiplayerJoin: (code, serverUrl) => this.joinOnlineRoom(code, serverUrl),
+      onMultiplayerLaunchOnline: () => this.launchOnlineCoop(),
+      onMultiplayerRaceLocal: () => this.readyLocalRace(),
+      onMultiplayerRaceLocalEnter: () => this.enterLocalRace(),
+      onMultiplayerRaceHost: (serverUrl) => this.hostOnlineRace(serverUrl),
+      onMultiplayerRaceJoin: (code, serverUrl) => this.joinOnlineRace(code, serverUrl),
+      onMultiplayerRaceLaunch: () => this.launchOnlineRace(),
+      onMultiplayerLobbyClose: () => this.cancelLocalLobby(),
+      onRaceExit: () => this.retreatToHome(),
       onGarageShape: (shape) => {
+        if (this.garageShape === shape) return;
         this.garageShape = shape;
+        this.markGarageDirty();
         this.refreshGarageShip();
         this.garage.resetView();
-        this.refreshGarageUI();
+        this.ui.patchGarageShape(shape, this.save, this.garageFaction);
+        this.ui.showToast(`Equipped: ${SHAPE_STATS[shape].slotLabel}`);
       },
       onGarageFaction: (faction) => {
+        if (this.garageFaction === faction) return;
         this.garageFaction = faction;
-        this.refreshGarageUI();
+        this.markGarageDirty();
+        this.ui.patchGarageFaction(faction);
+        this.ui.patchGarageShape(this.garageShape, this.save, faction);
+        this.ui.showToast(`Faction set: ${FACTIONS[faction].name} — save or deploy`);
       },
       onGarageSave: () => {
         this.save.shipPaint = clonePaint(this.garagePaint);
         this.save.shipShape = this.garageShape;
         this.save.faction = this.garageFaction;
         writeSave(this.save);
-        this.ui.showToast("Ship configuration saved");
+        this.garageDirty = false;
+        this.ui.patchGarageDirty(false);
+        this.hub.setShip(this.save.shipPaint, this.save.shipShape);
+        const label = SHAPE_STATS[this.garageShape].slotLabel;
+        this.ui.showToast(`${label} saved · ${FACTIONS[this.garageFaction].name}`);
       },
       onCloseStation: () => this.closeStation(),
       onStationHome: () => this.retreatToHome(),
@@ -237,11 +267,12 @@ export class Game {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(1);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
+    this.renderer.domElement.addEventListener("pointerdown", () => this.focusFlight());
 
     clearTextureCache();
     this.skyDome = createSkyDome();
@@ -291,7 +322,10 @@ export class Game {
         this.enterSettings();
         break;
       case "multiplayer":
-        this.ui.showMultiplayerComingSoon();
+        this.ui.showMultiplayerLobby("online");
+        break;
+      case "race":
+        this.ui.showMultiplayerLobby("race");
         break;
       case "leaderboards":
         this.ui.showToast("Leaderboards coming soon");
@@ -366,7 +400,8 @@ export class Game {
     this.ui.bindMobile(this.input);
     this.focusFlight();
     sfx.startMusic();
-    this.ui.showToast("Training rocks ahead with gold beacons · WASD to fly");
+    this.sector.setTutorialFocus("fly");
+    this.ui.showToast("Gold MINE pillars mark the rocks ahead · WASD to fly");
   }
 
   private finishTraining(): void {
@@ -383,6 +418,280 @@ export class Game {
     this.ui.showTrainingComplete(() => this.enterHome());
   }
 
+  private ensureLocalSession(): LocalSession | null {
+    if (!LocalSession.supported()) return null;
+    if (this.mpSession?.mode === "local") return this.mpSession as LocalSession;
+    this.stopMultiplayerSession();
+    const session = new LocalSession();
+    this.mpSession = session;
+    this.wireMultiplayerSession();
+    session.announce(this.save.name);
+    return session;
+  }
+
+  private cancelLocalLobby(): void {
+    if (this.mode === "sector") return;
+    if (!this.localLobbyMode && !this.onlineRoomRole) return;
+    this.localLobbyMode = null;
+    this.onlineRoomRole = null;
+    this.stopMultiplayerSession();
+  }
+
+  private readyLocalCoop(): void {
+    if (!LocalSession.supported()) {
+      this.ui.showToast("Local co-op needs a modern browser (Chrome / Firefox)");
+      return;
+    }
+    if (!this.requireCoopReady()) return;
+    const session = this.ensureLocalSession();
+    if (!session) return;
+    this.localLobbyMode = "coop";
+    this.coopActive = true;
+    this.raceActive = false;
+    this.ui.patchLocalCoopWaiting(this.mpPeerCount);
+    this.ui.showToast("Ready — open a second tab and hit READY UP");
+  }
+
+  private enterLocalCoop(): void {
+    if (!this.mpSession || this.localLobbyMode !== "coop") {
+      this.ui.showToast("Hit READY UP first");
+      return;
+    }
+    this.localLobbyMode = null;
+    this.deployFromHome();
+    this.ui.showToast(
+      this.mpPeerCount > 1 ? "Co-op sector — cyan blip = co-pilot" : "Co-op sector — waiting for co-pilot tab"
+    );
+  }
+
+  private readyLocalRace(): void {
+    if (!LocalSession.supported()) {
+      this.ui.showToast("Local race needs a modern browser (Chrome / Firefox)");
+      return;
+    }
+    if (!this.requireCoopReady()) return;
+    const session = this.ensureLocalSession();
+    if (!session) return;
+    this.localLobbyMode = "race";
+    this.coopActive = true;
+    this.raceActive = true;
+    this.ui.patchLocalRaceWaiting(this.mpPeerCount);
+    this.ui.showToast("Ready — open a second tab and hit READY UP");
+  }
+
+  private enterLocalRace(): void {
+    if (!this.mpSession || this.localLobbyMode !== "race") {
+      this.ui.showToast("Hit READY UP first");
+      return;
+    }
+    this.localLobbyMode = null;
+    this.deployFromHome();
+    this.ui.showToast(this.mpPeerCount > 1 ? "Race starting — synced countdown" : "Race live — solo until 2nd tab joins");
+  }
+
+  private getCoopSpawnSlot(): number {
+    if (!this.mpSession) return 0;
+    const peerIds = this.mpSession.getPeerIds?.() ?? [];
+    const ids = [this.mpSession.clientId, ...peerIds].sort();
+    return Math.max(0, ids.indexOf(this.mpSession.clientId));
+  }
+
+  private scheduleRaceGo(): void {
+    if (!this.raceActive || !this.mpSession || !this.sector?.raceController) return;
+    const startAt = Date.now() + 4500;
+    this.mpSession.publishWorld({ type: "race-go", startAt });
+    this.sector.raceController.syncRaceStart(startAt);
+  }
+
+  private requireCoopReady(): boolean {
+    if (!this.save.tutorialComplete) {
+      this.ui.showToast("Complete training before multiplayer");
+      return false;
+    }
+    return true;
+  }
+
+  private readMpServerUrl(fallbackInputId?: string): string {
+    const fromInput = fallbackInputId
+      ? (document.getElementById(fallbackInputId) as HTMLInputElement | null)?.value
+      : undefined;
+    const url = (fromInput?.trim() || getMpServerUrl()).trim();
+    saveMpServerUrl(url);
+    return url;
+  }
+
+  private async hostOnlineRace(serverUrl: string): Promise<void> {
+    if (!this.requireCoopReady()) return;
+    this.stopMultiplayerSession();
+    try {
+      const url = this.readMpServerUrl("mp-race-server");
+      const session = await WebSocketSession.host(serverUrl.trim() || url, this.save.name);
+      this.mpSession = session;
+      this.coopActive = true;
+      this.raceActive = true;
+      this.onlineRoomRole = "host";
+      this.wireMultiplayerSession();
+      this.ui.patchMultiplayerRaceRoom(session.roomCode!, "host");
+      this.ui.showToast(`Race room ${session.roomCode} — share code, then START RACE`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not host race";
+      this.ui.showToast(msg);
+      this.ui.patchMultiplayerRaceError(msg);
+    }
+  }
+
+  private async joinOnlineRace(code: string, serverUrl: string): Promise<void> {
+    if (!this.requireCoopReady()) return;
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length < 4) {
+      this.ui.showToast("Enter a room code");
+      return;
+    }
+    this.stopMultiplayerSession();
+    try {
+      const url = this.readMpServerUrl("mp-race-server");
+      const session = await WebSocketSession.join(serverUrl.trim() || url, trimmed, this.save.name);
+      this.mpSession = session;
+      this.coopActive = true;
+      this.raceActive = true;
+      this.onlineRoomRole = "guest";
+      this.wireMultiplayerSession();
+      this.ui.patchMultiplayerRaceRoom(session.roomCode!, "guest");
+      this.ui.showToast(`Joined race ${session.roomCode} — waiting for host`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not join race";
+      this.ui.showToast(msg);
+      this.ui.patchMultiplayerRaceError(msg);
+    }
+  }
+
+  private launchOnlineRace(): void {
+    if (!this.mpSession || this.onlineRoomRole !== "host") {
+      this.ui.showToast("Host a race room first");
+      return;
+    }
+    this.mpSession.signalLaunch?.();
+    this.ui.closeMultiplayerLobby();
+    this.deployFromHome();
+    this.ui.showToast("Race starting — fly through gates in order!");
+  }
+
+  private async hostOnlineRoom(serverUrl: string): Promise<void> {
+    if (!this.requireCoopReady()) return;
+    this.stopMultiplayerSession();
+    this.raceActive = false;
+    try {
+      const url = this.readMpServerUrl("mp-server");
+      const session = await WebSocketSession.host(serverUrl.trim() || url, this.save.name);
+      this.mpSession = session;
+      this.coopActive = true;
+      this.onlineRoomRole = "host";
+      this.wireMultiplayerSession();
+      this.ui.patchMultiplayerRoom(session.roomCode!, "host");
+      this.ui.showToast(`Room ${session.roomCode} — share code, then LAUNCH SECTOR`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not create room";
+      this.ui.showToast(msg);
+      this.ui.patchMultiplayerError(msg);
+    }
+  }
+
+  private async joinOnlineRoom(code: string, serverUrl: string): Promise<void> {
+    if (!this.requireCoopReady()) return;
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length < 4) {
+      this.ui.showToast("Enter a room code");
+      return;
+    }
+    this.stopMultiplayerSession();
+    this.raceActive = false;
+    try {
+      const url = this.readMpServerUrl("mp-server");
+      const session = await WebSocketSession.join(serverUrl.trim() || url, trimmed, this.save.name);
+      this.mpSession = session;
+      this.coopActive = true;
+      this.onlineRoomRole = "guest";
+      this.wireMultiplayerSession();
+      this.ui.patchMultiplayerRoom(session.roomCode!, "guest");
+      this.ui.showToast(`Joined room ${session.roomCode} — waiting for host`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not join room";
+      this.ui.showToast(msg);
+      this.ui.patchMultiplayerError(msg);
+    }
+  }
+
+  private launchOnlineCoop(): void {
+    if (!this.mpSession || this.onlineRoomRole !== "host") {
+      this.ui.showToast("Create a room first");
+      return;
+    }
+    this.mpSession.signalLaunch?.();
+    this.ui.closeMultiplayerLobby();
+    this.deployFromHome();
+    this.ui.showToast("Co-op sector — shared wrecks & asteroids");
+  }
+
+  private wireMultiplayerSession(): void {
+    if (!this.mpSession) return;
+    this.mpSession.onRemoteShip = (snap, peerId) => {
+      if (snap) this.sector?.upsertRemotePlayer(snap);
+      else this.sector?.removeRemotePlayer(peerId);
+    };
+    this.mpSession.onWorldEvent = (ev, peerId) => {
+      if (ev.type === "race-go" && !this.sector) {
+        this.pendingRaceGo = ev.startAt;
+        return;
+      }
+      this.sector?.applyWorldEvent(ev, peerId);
+    };
+    this.mpSession.onPeerCount = (count) => {
+      this.mpPeerCount = count;
+      this.ui.patchMultiplayerPeers(count);
+      this.ui.patchMultiplayerRacePeers(count);
+      if (this.localLobbyMode === "coop") this.ui.patchLocalCoopWaiting(count);
+      if (this.localLobbyMode === "race") this.ui.patchLocalRaceWaiting(count);
+    };
+    this.mpSession.onRoomLaunch = () => {
+      if (this.mode === "sector" || !this.coopActive) return;
+      this.ui.closeMultiplayerLobby();
+      this.deployFromHome();
+      this.ui.showToast(this.raceActive ? "Race starting!" : "Host launched — entering sector");
+    };
+  }
+
+  private wireRaceController(): void {
+    const rc = this.sector?.raceController;
+    if (!rc) return;
+    const clientId = this.mpSession?.clientId ?? "local";
+    this.sector!.onRaceCountdown = (n) => this.ui.showRaceCountdown(n);
+    rc.onProgress = (checkpoint, finished, elapsedMs) => {
+      this.mpSession?.publishWorld({
+        type: "race-progress",
+        checkpoint,
+        finished,
+        elapsedMs,
+        name: this.save.name,
+      });
+      if (finished) {
+        this.ui.showRaceResults(rc.getStandings(this.save.name, clientId), clientId);
+      }
+    };
+  }
+
+  private stopMultiplayerSession(): void {
+    this.mpSession?.close();
+    this.mpSession = null;
+    this.coopActive = false;
+    this.raceActive = false;
+    this.localLobbyMode = null;
+    this.onlineRoomRole = null;
+    this.pendingRaceGo = null;
+    this.mpPeerCount = 1;
+    this.netTimer = 0;
+    this.ui.hideRaceUi();
+  }
+
   private deployFromHome(): void {
     const gameRoot = document.getElementById("game-root");
     if (gameRoot) gameRoot.style.visibility = "visible";
@@ -396,14 +705,48 @@ export class Game {
     this.garage.setShip(this.garagePaint, this.garageShape);
   }
 
-  private refreshGarageUI(): void {
-    this.ui.showGarage(this.garagePaint, this.garageFaction, this.garageShape, this.save.credits);
+  /** Swap voxel fallbacks for Polyy GLBs once assets finish loading. */
+  private refreshShipPreviews(): void {
+    if (this.mode === "garage" && this.garage.group.visible) {
+      this.refreshGarageShip();
+    }
+    if (this.hub.group.visible) {
+      this.hub.setShip(this.save.shipPaint, this.save.shipShape);
+    }
   }
 
-  private setGaragePaint(paint: ShipPaint): void {
+  private refreshGarageUI(): void {
+    this.ui.showGarage(this.save, this.garagePaint, this.garageFaction, this.garageShape, this.garageDirty);
+    this.rebindGarageViewport();
+  }
+
+  private markGarageDirty(): void {
+    this.garageDirty = true;
+    this.ui.patchGarageDirty(true);
+  }
+
+  private syncGarageFromSave(): void {
+    this.garagePaint = clonePaint(this.save.shipPaint);
+    this.garageShape = this.save.shipShape;
+    this.garageFaction = this.save.faction;
+    this.garageDirty = false;
+  }
+
+  private rebindGarageViewport(): void {
+    this.garageViewportUnbind?.();
+    requestAnimationFrame(() => {
+      this.garageViewportUnbind = bindGarageViewport(this.garage);
+      this.updateGarageCamera();
+    });
+  }
+
+  private setGaragePaint(paint: ShipPaint, changed?: RigSlot): void {
     this.garagePaint = paint;
+    this.markGarageDirty();
     this.refreshGarageShip();
-    this.ui.patchGaragePaint(paint);
+    this.ui.patchGarageRig(paint);
+    if (changed === "engine") this.ui.showToast("Engine glow updated");
+    else if (changed === "lights") this.ui.showToast("Running lights updated");
   }
 
   private enterFactions(): void {
@@ -479,6 +822,7 @@ export class Game {
     this.paused = false;
     this.ui.closePause();
     this.leaveGarageViewport();
+    this.stopMultiplayerSession();
     this.mode = "home";
     if (this.sector) {
       this.flushSave();
@@ -486,9 +830,12 @@ export class Game {
       this.sector = null;
     }
     this.garage.group.visible = false;
-    this.hub.group.visible = false;
+    this.setBackdrop("hub");
+    this.hub.setShip(this.save.shipPaint, this.save.shipShape);
+    this.hub.group.visible = true;
     const gameRoot = document.getElementById("game-root");
-    if (gameRoot) gameRoot.style.visibility = "hidden";
+    if (gameRoot) gameRoot.style.visibility = "visible";
+    this.updateHubCamera();
     this.ui.showHome(this.save);
   }
 
@@ -503,19 +850,31 @@ export class Game {
     }
     this.hub.group.visible = false;
     this.garage.group.visible = true;
-    this.garagePaint = clonePaint(this.save.shipPaint);
-    this.garageShape = this.save.shipShape;
-    this.garageFaction = this.save.faction;
+    this.syncGarageFromSave();
     this.ui.resetGarageTab();
     this.refreshGarageShip();
     this.garage.resetView();
     this.refreshGarageUI();
     this.setBackdrop("garage");
-    this.garageViewportUnbind?.();
-    requestAnimationFrame(() => {
-      this.garageViewportUnbind = bindGarageViewport(this.garage);
-      this.updateGarageCamera();
-    });
+    this.ui.showToast("Hangar — pick hull & rig colors, then Save or Deploy");
+  }
+
+  private launchFromGarage(): void {
+    if (!this.save.tutorialComplete) {
+      this.ui.showToast("Complete training before deploying");
+      return;
+    }
+    this.save.shipPaint = clonePaint(this.garagePaint);
+    this.save.shipShape = this.garageShape;
+    this.save.faction = this.garageFaction;
+    this.flushSave();
+    this.garageDirty = false;
+    this.leaveGarageViewport();
+    this.garage.group.visible = false;
+    this.hub.group.visible = false;
+    this.setBackdrop("space");
+    this.ui.showToast(`Deployed: ${SHAPE_STATS[this.garageShape].slotLabel}`);
+    this.enterSector();
   }
 
   private updateGarageCamera(): void {
@@ -532,10 +891,10 @@ export class Game {
   private setBackdrop(mode: "hub" | "garage" | "space"): void {
     const fog = this.scene.fog as THREE.FogExp2;
     if (mode === "space") {
-      this.renderer.toneMappingExposure = 1.55;
-      fog.density = 0.00004;
-      fog.color.setHex(0x1a2040);
-      this.scene.background = new THREE.Color(0x0e1428);
+      this.renderer.toneMappingExposure = 1.62;
+      fog.density = 0.000035;
+      fog.color.setHex(0x1e2648);
+      this.scene.background = new THREE.Color(0x0a1024);
       this.skyDome.visible = true;
     } else if (mode === "hub") {
       this.renderer.toneMappingExposure = 1.15;
@@ -619,19 +978,6 @@ export class Game {
     this.sceneLights.push(fill);
   }
 
-  private launch(faction: FactionId, paint: ShipPaint, shape: ShipShapeId): void {
-    if (this.save.faction !== faction) this.save = resetSave(faction);
-    this.save.faction = faction;
-    this.save.shipPaint = clonePaint(paint);
-    this.save.shipShape = shape;
-    this.flushSave();
-    this.leaveGarageViewport();
-    this.garage.group.visible = false;
-    this.hub.group.visible = false;
-    this.setBackdrop("space");
-    this.enterSector();
-  }
-
   private enterSector(): void {
     if (this.sector) {
       this.scene.remove(this.sector.group);
@@ -649,9 +995,40 @@ export class Game {
     this.missionToasts.clear();
     this.fuelEmptyLatch = false;
     this.ui.closeFuelCrisis();
-    this.sector = new Sector(this.save);
+    this.sector = new Sector(this.save, {
+      coop: this.coopActive,
+      race: this.raceActive,
+      worldSeed: this.mpSession?.worldSeed,
+    });
+    if (this.coopActive) {
+      this.sector.onCoopWorldEvent = (ev) => this.mpSession?.publishWorld(ev);
+      this.wireMultiplayerSession();
+    }
+    if (this.raceActive) {
+      this.wireRaceController();
+      if (this.mpSession) {
+        if (this.pendingRaceGo) {
+          this.sector.raceController?.syncRaceStart(this.pendingRaceGo);
+          this.pendingRaceGo = null;
+        } else {
+          this.scheduleRaceGo();
+        }
+      }
+    }
+    if (this.coopActive) {
+      this.sector.applyCoopSpawn(this.getCoopSpawnSlot());
+    }
     this.scene.add(this.sector.group);
-    this.ui.showHUD(this.save, "TAB to scan · G to dock at green beacon", [], {});
+    let hint = "TAB to scan · G to dock at green beacon";
+    if (this.raceActive) {
+      hint = "RACE — fly through gate rings in order · Shift boost · ESC pause";
+    } else if (this.coopActive) {
+      hint =
+        this.mpSession?.mode === "online"
+          ? "Online co-op — shared sector · cyan = co-pilot · TAB scan · G dock"
+          : "Co-op sector — cyan blip = co-pilot · TAB scan · G dock";
+    }
+    this.ui.showHUD(this.save, hint, [], {});
     this.ui.bindMobile(this.input);
     this.focusFlight();
     sfx.startMusic();
@@ -737,6 +1114,7 @@ export class Game {
     else if (this.mode === "home") this.updateHubCamera();
     else this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
@@ -752,6 +1130,11 @@ export class Game {
       this.camera.lookAt(lookAt);
     }
 
+    if (this.mode === "home" && !this.ui.isFaqOpen()) {
+      this.hub.update(dt);
+      this.updateHubCamera();
+    }
+
     if ((this.mode === "sector" || this.mode === "training") && this.sector) {
       if (this.input.consumeEscape()) {
         if (this.ui.isFaqOpen()) this.ui.closeFaq();
@@ -761,7 +1144,46 @@ export class Game {
 
       if (!this.paused && !this.ui.isFaqOpen() && !this.ui.isPauseOpen()) {
       const action = this.sector.update(this.input, dt, this.save);
-      if (action === "dock") this.openStation();
+      if (action === "dock" && !this.raceActive) this.openStation();
+
+      if (this.mpSession && this.mode === "sector") {
+        this.netTimer += dt;
+        if (this.netTimer >= 0.05) {
+          this.netTimer = 0;
+          const s = this.sector.ship;
+          this.mpSession.publishShip({
+            name: this.save.name,
+            x: s.position.x,
+            y: s.position.y,
+            z: s.position.z,
+            yaw: s.yaw,
+            pitch: s.pitch,
+            vx: s.velocity.x,
+            vy: s.velocity.y,
+            vz: s.velocity.z,
+            boosting: this.sector.state.boosting,
+            shape: this.save.shipShape,
+            paint: this.save.shipPaint,
+            faction: this.save.faction,
+          });
+        }
+        if (this.raceActive && this.sector.raceController && this.mpSession) {
+          const rc = this.sector.raceController;
+          if (rc.phase === "racing" && !rc.finished) {
+            this.raceSyncTimer += dt;
+            if (this.raceSyncTimer >= 0.35) {
+              this.raceSyncTimer = 0;
+              this.mpSession.publishWorld({
+                type: "race-progress",
+                checkpoint: rc.nextGate,
+                finished: false,
+                elapsedMs: rc.elapsedMs,
+                name: this.save.name,
+              });
+            }
+          }
+        }
+      }
 
       if (this.sector.state.message && this.sector.state.message !== this.lastToast) {
         this.lastToast = this.sector.state.message;
@@ -776,8 +1198,10 @@ export class Game {
       }
 
       if (this.mode === "training" && this.tutorial && !this.tutorial.finished) {
+        this.sector.setTutorialFocus(this.tutorial.step.id);
         if (this.tutorial.update(this.save, this.sector)) {
           this.ui.showTutorial(this.tutorial);
+          this.sector.setTutorialFocus(this.tutorial.step.id);
           if (this.tutorial.finished) this.ui.showToast("Training objective complete — dock at K-7");
         }
       }
@@ -798,6 +1222,13 @@ export class Game {
           actionLabel: this.sector.state.actionLabel,
           hazardFlash: this.sector.state.hazardFlash,
         });
+        if (this.raceActive && this.sector.raceController) {
+          const clientId = this.mpSession?.clientId ?? "local";
+          this.ui.showRaceLeaderboard(
+            this.sector.raceController.getStandings(this.save.name, clientId),
+            clientId
+          );
+        }
       }
 
       const speed = this.sector.ship.velocity.length();

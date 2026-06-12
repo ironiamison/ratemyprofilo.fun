@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { cloneKenney, kenneyReady, KENNEY_SHIPS, tintKenneyModel } from "../assets/kenneyLoader";
-import { clonePolyy, polyyReady, POLYY_SHIPS, tintPolyyModel } from "../assets/polyyLoader";
+import { cloneKenney, kenneyReady, KENNEY_SHIPS } from "../assets/kenneyLoader";
+import { clonePolyy, polyyReady, POLYY_SHIPS } from "../assets/polyyLoader";
 import { EngineExhaust } from "../effects/EngineExhaust";
 import type { ShipShapeId } from "../game/shipShapes";
 import type { ShipPaint } from "../game/shipPaint";
@@ -328,16 +328,8 @@ function buildModelHybrid(
   const animator = new ShipAnimator(group);
   const hull =
     source === "polyy"
-      ? (() => {
-          const h = clonePolyy(POLYY_SHIPS[shape]);
-          tintPolyyModel(h, paint.hull, isPlayer ? 0.32 : 0.22);
-          return h;
-        })()
-      : (() => {
-          const h = cloneKenney(KENNEY_SHIPS[shape]);
-          tintKenneyModel(h, paint.hull, isPlayer ? 0.5 : 0.35);
-          return h;
-        })();
+      ? clonePolyy(POLYY_SHIPS[shape])
+      : cloneKenney(KENNEY_SHIPS[shape]);
   group.add(hull);
 
   const onExhaust = (pos: THREE.Vector3, s: number) => {

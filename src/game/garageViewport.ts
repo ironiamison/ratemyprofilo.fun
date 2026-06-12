@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Garage } from "../visuals/Garage";
 
 export function bindGarageViewport(garage: Garage): () => void {
-  const el = document.querySelector(".gar-viewport");
+  const el = document.getElementById("gar-viewport") ?? document.querySelector(".gar-viewport");
   if (!el) return () => {};
 
   let dragging = false;
@@ -10,6 +10,7 @@ export function bindGarageViewport(garage: Garage): () => void {
   let lastY = 0;
 
   const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
     dragging = true;
     lastX = e.clientX;
     lastY = e.clientY;
@@ -34,10 +35,14 @@ export function bindGarageViewport(garage: Garage): () => void {
 
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     garage.onZoom(e.deltaY);
   };
 
-  const onDblClick = () => garage.resetView();
+  const onDblClick = (e: MouseEvent) => {
+    e.preventDefault();
+    garage.resetView();
+  };
 
   el.addEventListener("pointerdown", onDown as EventListener);
   el.addEventListener("pointermove", onMove as EventListener);
@@ -57,7 +62,7 @@ export function bindGarageViewport(garage: Garage): () => void {
 }
 
 export function applyGarageViewOffset(camera: THREE.PerspectiveCamera): void {
-  const el = document.querySelector(".gar-viewport");
+  const el = document.getElementById("gar-viewport") ?? document.querySelector(".gar-viewport");
   if (!el) {
     camera.clearViewOffset();
     return;

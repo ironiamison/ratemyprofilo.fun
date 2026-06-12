@@ -1,0 +1,12 @@
+# Render.com — connect repo, deploy, then set CNAME mp.spacesalvagers.com → this service URL
+services:
+  - type: web
+    name: space-salvagers-mp
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node server/mp-relay.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

@@ -27,22 +27,22 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "mine",
     title: "Strip the rock",
-    body: "Ore pays the bills. Fly toward the gold beacons — training asteroids are dead ahead.",
-    hint: "Fly to the gold beacon · hold SPACE within 14m to mine",
+    body: "Ore pays the bills. Follow the tall gold MINE pillars — they mark every training asteroid.",
+    hint: "Fly to the gold MINE pillar · hold SPACE within 22m",
     check: (s) => s.cargo.ore > 0 || s.oreMined > 0,
   },
   {
     id: "salvage",
     title: "Loot the dead",
-    body: "Wrecks hold scrap and ship parts. The red beacon marks your training target.",
-    hint: "Hold E near the wreck to salvage",
+    body: "Wrecks hold scrap and ship parts. The red SALVAGE pillar marks your target past the rocks.",
+    hint: "Follow the red SALVAGE pillar · hold E within 24m",
     check: (s) => s.cargo.scrap > 0 || s.wrecksSalvaged > 0,
   },
   {
     id: "dock",
     title: "Home port",
-    body: "Outpost K-7 buys your cargo and refuels your hull. Dock to finish training.",
-    hint: "Fly to the green beacon · Press G to dock",
+    body: "Outpost K-7 buys your cargo and refuels your hull. The green DOCK pillar marks the station.",
+    hint: "Follow the green DOCK pillar · press G to dock",
     check: (s) => s.hasDocked,
   },
 ];

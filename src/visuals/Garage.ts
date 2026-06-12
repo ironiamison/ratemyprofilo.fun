@@ -26,7 +26,20 @@ const POLYY_PREVIEW: Record<ShipShapeId, { scale: number; distMul: number; yaw: 
   hammer: { scale: 0.95, distMul: 3.05, yaw: 0.72, fit: 4.4 },
 };
 
-const SHIP_PIVOT_Y = { polyy: 2.05, kenney: 1.65, procedural: 1.55 };
+const SHIP_FLOOR_Y = 0.14;
+
+function alignShipOnFloor(shipRoot: THREE.Group): { center: THREE.Vector3; radius: number } {
+  shipRoot.updateMatrixWorld(true);
+  const box = getHullBounds(shipRoot);
+  const center = box.getCenter(new THREE.Vector3());
+  shipRoot.position.set(-center.x, SHIP_FLOOR_Y - box.min.y, -center.z);
+  shipRoot.updateMatrixWorld(true);
+  const aligned = getHullBounds(shipRoot);
+  const alignedCenter = aligned.getCenter(new THREE.Vector3());
+  const sphere = new THREE.Sphere();
+  aligned.getBoundingSphere(sphere);
+  return { center: alignedCenter, radius: Math.max(1.8, sphere.radius) };
+}
 
 function buildProceduralStage(): THREE.Group {
   const stage = new THREE.Group();
@@ -123,12 +136,11 @@ export class Garage {
   private targetDistance = 14;
   private autoRotate = true;
   private idleTimer = 0;
-  private pivotY = SHIP_PIVOT_Y.procedural;
-  private lookAt = new THREE.Vector3();
   private shipRadius = 3;
+  private lookAt = new THREE.Vector3(0, 1.2, 0);
+  private spot: THREE.SpotLight | null = null;
 
   constructor() {
-    this.pivotY = polyyReady() ? SHIP_PIVOT_Y.polyy : kenneyReady() ? SHIP_PIVOT_Y.kenney : SHIP_PIVOT_Y.procedural;
     this.group.add(buildHangarStage());
 
     const ambient = new THREE.AmbientLight(0xc8d4f0, polyyReady() ? 0.55 : 0.55);
@@ -157,7 +169,8 @@ export class Garage {
 
     const spot = new THREE.SpotLight(0xffffff, polyyReady() ? 3.8 : 2.8, 40, 0.36, 0.42, 1);
     spot.position.set(2, 14, 8);
-    spot.target.position.set(0, this.pivotY, 0);
+    spot.target.position.set(0, 1.2, 0);
+    this.spot = spot;
     this.group.add(spot);
     this.group.add(spot.target);
 
@@ -169,9 +182,8 @@ export class Garage {
     accent.position.set(-3, 3, 4);
     this.group.add(accent);
 
-    this.shipRoot.position.set(0, this.pivotY, 0);
+    this.shipRoot.position.set(0, 0, 0);
     this.group.add(this.shipRoot);
-    this.lookAt.set(0, this.pivotY + 0.2, 0);
   }
 
   setShip(paint: ShipPaint, shape: ShipShapeId): void {
@@ -186,13 +198,14 @@ export class Garage {
 
     this.shipRoot.scale.setScalar(1);
     this.shipRoot.rotation.set(0, 0, 0);
-    this.shipRoot.position.set(0, this.pivotY, 0);
+    this.shipRoot.position.set(0, 0, 0);
 
     const built = buildShip(this.shipRoot, paint, shape, true, true);
     this.shipAnimator = built.animator;
     this.fitShipToStage();
     this.frameCamera();
     this.shipAnimator.setHoverBase(this.shipRoot.position.y);
+    if (this.spot) this.spot.target.position.copy(this.lookAt);
   }
 
   private fitShipToStage(): void {
@@ -209,17 +222,9 @@ export class Garage {
     const fit = maxDim > 0.01 ? THREE.MathUtils.clamp(target / maxDim, 0.25, 2.5) : 1;
     this.shipRoot.scale.setScalar(cfg.scale * fit);
 
-    this.shipRoot.updateMatrixWorld(true);
-    const fitted = getHullBounds(this.shipRoot);
-    const center = fitted.getCenter(new THREE.Vector3());
-    const fittedSize = fitted.getSize(new THREE.Vector3());
-    this.shipRoot.position.set(-center.x, this.pivotY - center.y + fittedSize.y * 0.04, -center.z);
-
-    this.shipRoot.updateMatrixWorld(true);
-    const sphere = new THREE.Sphere();
-    fitted.getBoundingSphere(sphere);
-    this.shipRadius = Math.max(1.8, sphere.radius);
-    this.lookAt.set(0, this.pivotY + fittedSize.y * 0.1, 0);
+    const aligned = alignShipOnFloor(this.shipRoot);
+    this.lookAt.copy(aligned.center);
+    this.shipRadius = aligned.radius;
   }
 
   private frameCamera(): void {

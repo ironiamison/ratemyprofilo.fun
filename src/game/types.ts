@@ -187,7 +187,7 @@ export const UPGRADE_COSTS = {
 
 export const MAX_UPGRADE = { engine: 4, hull: 4, cargo: 4, scanner: 3 };
 
-export type RadarKind = "station" | "asteroid" | "wreck" | "npc";
+export type RadarKind = "station" | "asteroid" | "wreck" | "npc" | "player";
 
 export interface RadarPOI {
   id: string;

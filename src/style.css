@@ -165,7 +165,7 @@ html, body {
 .action-progress.mining-active .bar-fill.action {
   background: linear-gradient(90deg, #ff8833, #ffcc55, #ffee88);
   box-shadow: 0 0 12px rgba(255, 160, 50, 0.55);
-  animation: mine-bar-pulse 0.5s ease-in-out infinite alternate;
+  animation: mine-bar-pulse 1.5s ease-in-out infinite alternate;
 }
 @keyframes mine-bar-pulse {
   from { filter: brightness(1); }
@@ -358,6 +358,15 @@ html, body {
   background: var(--blip);
   box-shadow: 0 0 6px var(--blip);
   opacity: 0.85;
+}
+
+.radar-blip-player .radar-blip-shape {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blip);
+  box-shadow: 0 0 8px var(--blip), 0 0 16px color-mix(in srgb, var(--blip) 60%, transparent);
+  opacity: 1;
 }
 
 .radar-blip-station .radar-blip-shape {
@@ -750,12 +759,99 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 .faq-panel p, .faq-panel li { font-size: 0.68rem; line-height: 1.7; color: #c0d0e8; }
 .faq-panel kbd { background: rgba(60, 80, 130, 0.6); border: 1px solid rgba(136, 221, 255, 0.3); padding: 0.1rem 0.35rem; border-radius: 3px; color: #88ddff; }
 
-/* Mobile */
-.mobile-controls { display: none; position: absolute; bottom: 4rem; left: 0; right: 0; padding: 0 0.5rem; justify-content: space-between; pointer-events: none; }
-@media (max-width: 900px) { .mobile-controls { display: flex; } }
-.mob-dpad, .mob-actions { display: flex; gap: 0.3rem; pointer-events: auto; flex-wrap: wrap; }
-.mob-btn { width: 48px; height: 48px; background: rgba(30, 20, 60, 0.9); border: 1px solid rgba(136, 221, 255, 0.35); color: #88ddff; font-size: 0.65rem; cursor: pointer; }
-.mob-btn.boost { border-color: #ffd23f; color: #ffd23f; width: 56px; height: 56px; }
+/* Mobile flight controls */
+.mobile-controls {
+  display: none;
+  position: absolute;
+  bottom: 0.65rem;
+  left: 0;
+  right: 0;
+  padding: 0 0.45rem 0.35rem;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.35rem;
+  pointer-events: none;
+  z-index: 12;
+}
+@media (max-width: 900px), (hover: none) and (pointer: coarse) {
+  .mobile-controls { display: flex; }
+  .hud-bottom { bottom: 10.5rem; max-width: 92vw; }
+  .hud-left { top: 0.55rem; left: 0.45rem; max-width: 46vw; }
+  .hud-left .panel { padding: 0.4rem 0.55rem; }
+  .hud-left .panel-value { font-size: 0.68rem; }
+  .hud-right { top: 0.55rem; right: 0.45rem; min-width: 0; max-width: 44vw; padding-right: 0; }
+  .hud-hub-btn { top: auto; bottom: 11rem; left: 0.45rem; font-size: 0.48rem; padding: 0.35rem 0.55rem; }
+  .tutorial-hud { width: min(94vw, 420px); top: 0.45rem; }
+  .tutorial-training-tag { top: 0.45rem; right: 0.45rem; font-size: 0.4rem; }
+}
+
+.mob-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  pointer-events: auto;
+  background: rgba(10, 14, 28, 0.72);
+  border: 1px solid rgba(100, 140, 190, 0.28);
+  border-radius: 10px;
+  padding: 0.35rem 0.4rem 0.45rem;
+  backdrop-filter: blur(8px);
+}
+.mob-cluster-label {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.38rem;
+  letter-spacing: 0.14em;
+  color: #6a88aa;
+  text-align: center;
+}
+.mob-dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.mob-dpad-mid {
+  display: flex;
+  gap: 0.2rem;
+}
+.mob-row {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.mob-btn {
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0.35rem 0.45rem;
+  background: rgba(24, 32, 52, 0.95);
+  border: 1px solid rgba(136, 200, 255, 0.35);
+  border-radius: 8px;
+  color: #9ad0ff;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mob-btn-lg { min-width: 50px; min-height: 50px; font-size: 0.85rem; }
+.mob-btn-boost { border-color: rgba(255, 210, 63, 0.65); color: #ffd23f; min-width: 52px; }
+.mob-btn-action { min-width: 72px; min-height: 48px; font-size: 0.46rem; letter-spacing: 0.08em; }
+.mob-btn-mine { border-color: rgba(255, 200, 80, 0.55); color: #ffcc66; }
+.mob-btn-salvage { border-color: rgba(255, 90, 100, 0.55); color: #ff8899; min-width: 88px; }
+.mob-btn-dock { border-color: rgba(68, 221, 153, 0.55); color: #66eebb; }
+.mob-btn-active,
+.mob-btn:active {
+  background: rgba(50, 80, 130, 0.95);
+  border-color: #88ddff;
+  transform: scale(0.96);
+  box-shadow: inset 0 0 12px rgba(100, 180, 255, 0.25);
+}
+.mob-btn-boost.mob-btn-active { border-color: #ffe066; color: #fff0a0; }
+.mob-btn-salvage.mob-btn-active { border-color: #ff6677; color: #ffc0c8; }
 
 /* Premium Garage */
 .garage-premium {
@@ -782,6 +878,22 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 }
 .gar-ship-name { font-size: 0.72rem; color: #ffd23f; font-weight: 600; }
 .gar-ship-class { font-size: 0.58rem; color: #7080a0; }
+.gar-dirty-badge {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.44rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #1a1000;
+  background: #ffb800;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  animation: gar-dirty-pulse 1.4s ease-in-out infinite;
+}
+.gar-dirty-badge.hidden { display: none; }
+@keyframes gar-dirty-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
 
 .gar-stat-bar { display: flex; gap: 0.9rem; flex-wrap: wrap; }
 .gar-stat {
@@ -837,6 +949,7 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 
 .gar-tab-panel { flex: 1; overflow-y: auto; padding: 0.55rem; }
 .gar-tab-panel.hidden { display: none; }
+.panel-hint-tight { margin-bottom: 0.35rem; }
 .panel-hint {
   font-size: 0.5rem; line-height: 1.45; color: #6a8098;
   margin: 0 0 0.55rem; padding: 0.35rem 0.4rem;
@@ -916,6 +1029,7 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 .paint-palette {
   display: flex; flex-wrap: wrap; gap: 0.2rem;
 }
+.rig-palette { margin-bottom: 0.65rem; }
 .palette-swatch {
   width: 14px; height: 14px; padding: 0; border-radius: 2px;
   border: 1px solid rgba(0,0,0,0.35); cursor: pointer;
@@ -942,6 +1056,49 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
   letter-spacing: 0.12em; text-transform: uppercase;
 }
 
+.boot-error {
+  max-width: min(440px, 90vw);
+  text-align: center;
+  padding: 1rem;
+}
+
+.boot-error-title {
+  color: #ff8888;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.6rem;
+}
+
+.boot-error-body {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #88aacc;
+  margin-bottom: 0.75rem;
+}
+
+.boot-error-detail {
+  font-size: 0.58rem;
+  color: #6688aa;
+  white-space: pre-wrap;
+  text-align: left;
+  max-height: 120px;
+  overflow: auto;
+  margin-bottom: 0.75rem;
+}
+
+.boot-error-reload {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(160, 190, 230, 0.35);
+  background: rgba(24, 32, 48, 0.9);
+  color: #d8e8ff;
+  cursor: pointer;
+}
+
 .crew-list { display: flex; flex-direction: column; gap: 0.35rem; }
 .crew-card {
   display: flex; flex-direction: column; gap: 0.15rem;
@@ -955,9 +1112,16 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 .crew-bonus { font-size: 0.48rem; color: #708090; }
 
 .gar-viewport {
-  pointer-events: auto; min-width: 0; position: relative;
+  pointer-events: auto; min-width: 0; min-height: 180px; position: relative;
   cursor: grab; touch-action: none;
-  background: linear-gradient(180deg, transparent 0%, rgba(8, 12, 22, 0.15) 100%);
+  background: radial-gradient(ellipse at 50% 55%, rgba(30, 50, 90, 0.35) 0%, rgba(8, 12, 22, 0.05) 70%);
+}
+.gar-viewport-frame {
+  position: absolute; inset: 0.65rem;
+  border: 1px solid rgba(100, 180, 255, 0.22);
+  border-radius: 8px;
+  box-shadow: inset 0 0 40px rgba(60, 120, 200, 0.08), 0 0 24px rgba(40, 100, 180, 0.12);
+  pointer-events: none;
 }
 .gar-viewport:active { cursor: grabbing; }
 .gar-viewport-hint {
@@ -1033,3 +1197,111 @@ h3 .sub { font-size: 0.5rem; color: #7788aa; font-weight: normal; text-transform
 }
 .gar-btn-launch:hover { filter: brightness(1.08); }
 .launch-rocket { font-size: 0.85rem; }
+
+/* Race mode */
+.race-countdown {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(4rem, 18vw, 9rem);
+  font-weight: 800;
+  color: #ffd23f;
+  text-shadow: 0 0 40px rgba(255, 210, 63, 0.65);
+  pointer-events: none;
+  z-index: 200;
+  animation: race-pulse 0.55s ease-out;
+}
+.race-countdown.race-go {
+  color: #66ff99;
+  text-shadow: 0 0 50px rgba(102, 255, 153, 0.75);
+  font-size: clamp(3rem, 14vw, 7rem);
+}
+@keyframes race-pulse {
+  from { transform: scale(1.35); opacity: 0.2; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.race-leaderboard {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 200px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgba(102, 232, 255, 0.35);
+  background: rgba(8, 14, 28, 0.82);
+  z-index: 50;
+  pointer-events: none;
+}
+.race-lb-title {
+  display: block;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.42rem;
+  letter-spacing: 0.14em;
+  color: #88aacc;
+  margin-bottom: 0.35rem;
+}
+.race-standings { list-style: none; margin: 0; padding: 0; }
+.race-row {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr auto;
+  gap: 0.35rem;
+  font-size: 0.52rem;
+  color: #c8d8e8;
+  padding: 0.12rem 0;
+}
+.race-row.race-you { color: #ffd23f; }
+.race-place { color: #6688aa; }
+.race-time { color: #66e8ff; font-variant-numeric: tabular-nums; }
+
+.race-results-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 8, 18, 0.75);
+  z-index: 180;
+}
+.race-results-panel {
+  padding: 1.2rem 1.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 210, 63, 0.45);
+  background: linear-gradient(180deg, rgba(20, 32, 52, 0.96), rgba(10, 18, 32, 0.98));
+  min-width: 260px;
+  text-align: center;
+}
+.race-results-title {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: #ffd23f;
+  margin: 0 0 0.75rem;
+}
+.race-results-list { list-style: none; margin: 0 0 1rem; padding: 0; }
+.race-result-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  font-size: 0.62rem;
+  color: #d0e0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.race-result-row.race-you { color: #66e8ff; font-weight: 600; }
+.race-results-btn {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid rgba(102, 232, 255, 0.45);
+  background: rgba(40, 90, 120, 0.5);
+  color: #d8f8ff;
+  cursor: pointer;
+}
+.race-results-btn:hover { border-color: #66e8ff; }

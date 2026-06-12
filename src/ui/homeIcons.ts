@@ -28,6 +28,7 @@ export const HOME_ICONS = {
   send: svg(`<path d="M3 12l18-9-4 9 4 9-18-9z" fill="#00a3ff"/>`, 16),
   chain: svg(`<path d="M8 10a3 3 0 014.2-2.6l1.2 1.2M16 14a3 3 0 01-4.2 2.6l-1.2-1.2M10 12h4" stroke="#ffb800" stroke-width="1.5" stroke-linecap="round"/>`, 20),
   playLg: svg(`<path d="M9 6l10 6-10 6V6z" fill="currentColor"/>`, 28),
+  race: svg(`<path d="M5 5h5v5H5V5zM14 5h5v5h-5V5zM5 14h5v5H5v-5zM14 14h5v5h-5v-5z" fill="currentColor" opacity="0.85"/><path d="M4 4h16v16H4V4z" stroke="currentColor" stroke-width="1.5"/>` , 22),
   wrench: svg(`<path d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 005.4-5.4l-1.5 1.5-2.8-2.8 1.5-1.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>`, 22),
   cube: svg(`<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke="currentColor" stroke-width="1.5"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" stroke="currentColor" stroke-width="1.2" opacity="0.6"/>`, 22),
   people: svg(`<circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 20c0-3 2.5-5 5-5s5 2 5 5M14 20c0-2 1.5-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`, 22),

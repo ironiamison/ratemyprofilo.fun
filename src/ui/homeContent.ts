@@ -1,6 +1,7 @@
 import { tierLabel } from "../chain/holderPerks";
 import { getQuotes } from "../game/economy";
 import { FACTIONS, WRECK_DEFS, type PlayerSave } from "../game/types";
+import { X_HANDLE, X_URL } from "../social";
 import { HOME_ICONS } from "./homeIcons";
 import { buildHomeTokenView, renderTokenPanel, type HomeTokenView } from "./homeTokenPanel";
 
@@ -44,14 +45,29 @@ export function renderHomeHtml(save: PlayerSave, tokenView?: HomeTokenView): str
   const news = buildNews(save);
   const f = FACTIONS[save.faction];
   const needsTraining = !save.tutorialComplete;
+  const freshDeploy = save.tutorialComplete && save.wrecksSalvaged === 0 && save.oreMined < 5;
   const playLabel = needsTraining ? "START TRAINING" : "PLAY";
   const token = tokenView ?? buildHomeTokenView();
   const holderBadge = token.tier !== "none" ? ` · <span class="holder-badge">${tierLabel(token.tier)}</span>` : "";
+
+  const onboardBanner = needsTraining
+    ? `<aside class="home-onboard interactive" role="note">
+        <span class="home-onboard-tag">NEW CAPTAIN</span>
+        <p class="home-onboard-text">Start with <strong>Flight School</strong> — learn to fly, scan, mine, salvage, and dock in about five minutes.</p>
+      </aside>`
+    : freshDeploy
+      ? `<aside class="home-onboard home-onboard--deploy interactive" role="note">
+          <span class="home-onboard-tag">CLEARED FOR SECTOR</span>
+          <p class="home-onboard-text">Hit <strong>PLAY</strong> to deploy. <kbd>TAB</kbd> scan · mine rocks · strip wrecks · dock at K-7 with <kbd>G</kbd>.</p>
+        </aside>`
+      : "";
 
   return `
     <div class="home-screen interactive">
       <div class="home-bg" aria-hidden="true"></div>
       <div class="home-vignette" aria-hidden="true"></div>
+
+      ${onboardBanner}
 
       <header class="home-brand">
         <h1 class="home-title">
@@ -84,7 +100,11 @@ export function renderHomeHtml(save: PlayerSave, tokenView?: HomeTokenView): str
         </button>
         <button class="menu-btn menu-multiplayer interactive" data-nav="multiplayer">
           <span class="menu-ico">${HOME_ICONS.crew}</span>
-          <span class="menu-label">MULTIPLAYER <span class="menu-soon">SOON</span></span>
+          <span class="menu-label">CO-OP <span class="menu-soon">BETA</span></span>
+        </button>
+        <button class="menu-btn menu-race interactive" data-nav="race">
+          <span class="menu-ico">${HOME_ICONS.race}</span>
+          <span class="menu-label">RACE <span class="menu-soon menu-new">NEW</span></span>
         </button>
         <button class="menu-btn interactive" data-nav="settings">
           <span class="menu-ico">${HOME_ICONS.gear}</span>
@@ -104,8 +124,8 @@ export function renderHomeHtml(save: PlayerSave, tokenView?: HomeTokenView): str
       </aside>
 
       <footer class="home-social interactive">
-        <button class="social-btn interactive" title="Discord">${HOME_ICONS.discord}</button>
-        <button class="social-btn interactive" title="Twitter">${HOME_ICONS.twitter}</button>
+        <button class="social-btn interactive" title="Discord (coming soon)" id="btn-social-discord">${HOME_ICONS.discord}</button>
+        <a class="social-btn interactive" href="${X_URL}" target="_blank" rel="noopener noreferrer" title="Follow ${X_HANDLE} on X" id="btn-social-x">${HOME_ICONS.twitter}</a>
         <button class="social-btn interactive" id="btn-faq-footer" title="Field Manual">${HOME_ICONS.book}</button>
       </footer>
     </div>`;

@@ -43,12 +43,16 @@ export function renderTokenPanel(view: HomeTokenView): string {
 
   const walletBlock = view.connected
     ? `<div class="token-wallet">
-        <span class="token-wallet-addr">${view.walletShort}</span>
-        <span class="token-wallet-bal">${formatBalance(view.balance)} $${view.symbol}</span>
-        ${tierBadge}
-        <button class="token-btn token-btn-ghost interactive" id="btn-disconnect-wallet">DISCONNECT</button>
+        <div class="token-wallet-info">
+          <span class="token-wallet-addr">${view.walletShort}</span>
+          <span class="token-wallet-meta">
+            <span class="token-wallet-bal">${formatBalance(view.balance)} $${view.symbol}</span>
+            ${tierBadge}
+          </span>
+        </div>
+        <button class="token-btn token-btn-ghost token-btn-disconnect interactive" id="btn-disconnect-wallet" type="button">DISCONNECT</button>
       </div>`
-    : `<button class="token-btn token-btn-connect interactive" id="btn-connect-wallet">CONNECT WALLET</button>`;
+    : `<button class="token-btn token-btn-connect interactive" id="btn-connect-wallet" type="button">CONNECT</button>`;
 
   const setupNote = !mintConfigured
     ? `<p class="token-setup">Set <code>VITE_PUMP_MINT</code> in <code>.env</code> to enable live price & perks.</p>`

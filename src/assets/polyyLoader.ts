@@ -34,6 +34,11 @@ export const POLYY_PRELOAD: PolyyModelId[] = Object.values(POLYY_SHIPS);
 const cache = new Map<PolyyModelId, THREE.Group>();
 let ready = false;
 
+let resolveReady: (() => void) | null = null;
+export const whenPolyyReady = new Promise<void>((resolve) => {
+  resolveReady = resolve;
+});
+
 function normalizeRoot(root: THREE.Group, tuning?: ModelTuning): void {
   if (tuning?.rotY) root.rotation.y = tuning.rotY;
 
@@ -84,6 +89,7 @@ export async function preloadPolyyModels(): Promise<void> {
     })
   );
   ready = true;
+  resolveReady?.();
 }
 
 export function polyyReady(): boolean {

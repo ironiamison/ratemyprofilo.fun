@@ -1,15 +1,16 @@
 import { mintConfigured, PUMP_MINT } from "../chain/config";
-import { fetchPumpStats } from "../chain/pumpPrice";
 import { walletService } from "../chain/wallet";
 import { getMissionProgress } from "../game/missionProgress";
 import { getActiveMission } from "../game/missions";
 import { cargoMax, cargoWeight } from "../game/economy";
 import { FACTIONS, MAX_UPGRADE, UPGRADE_COSTS, type FactionId, type PlayerSave, type RadarPOI } from "../game/types";
 import { writeSave } from "../game/Save";
-import { paintToHex, type PaintPart, type ShipPaint } from "../game/shipPaint";
+import type { RigSlot, ShipPaint } from "../game/shipPaint";
 import type { ShipShapeId } from "../game/shipShapes";
 import { getFaqHtml } from "./faqContent";
 import { renderGarageHtml, type GarageTab } from "./garageContent";
+import { computeLiveGarageStats, renderGarageStatBar, renderGarageStatList } from "./garageStats";
+import { SHIP_SHAPES } from "../game/shipShapes";
 import type { TutorialController } from "../game/Tutorial";
 import { renderHomeHtml } from "./homeContent";
 import { buildHomeTokenView, patchTokenPanel } from "./homeTokenPanel";
@@ -20,20 +21,20 @@ import { sfx } from "../audio/SFX";
 import { renderSettingsHtml } from "./settingsContent";
 import { parseTradeAction } from "./stationMarket";
 import { renderIntroHtml, renderTrainingCompleteHtml } from "./introContent";
-import { renderMultiplayerComingSoonHtml } from "./multiplayerContent";
+import { renderMultiplayerLobbyHtml, type MultiplayerLobbyTab } from "./multiplayerContent";
+import { renderRaceLeaderboard, renderRaceResults } from "./raceHud";
+import type { PeerRaceState } from "../race/RaceController";
 import { renderFuelCrisisHtml, renderFuelEmptyHtml } from "./fuelCrisisContent";
 import { renderPauseHtml } from "./pauseContent";
+import { renderTutorialHudHtml, renderTutorialTagHtml } from "./tutorialContent";
 import { RADAR_SIZE, radarStateKey, renderRadarBlips, renderRadarNearest } from "./radarDisplay";
 import { renderStationHtml } from "./stationMarket";
 
 export class UI {
   root: HTMLElement;
   private handlers: {
-    onGarageLaunch?: (faction: FactionId, paint: ShipPaint, shape: ShipShapeId) => void;
-    onGarageSkin?: (id: string) => void;
-    onGaragePart?: (part: PaintPart) => void;
-    onGarageColor?: (part: PaintPart, color: number) => void;
-    onGarageRandom?: () => void;
+    onGarageLaunch?: () => void;
+    onGarageRig?: (slot: RigSlot, color: number) => void;
     onGarageShape?: (shape: ShipShapeId) => void;
     onGarageFaction?: (faction: FactionId) => void;
     onGarageSave?: () => void;
@@ -64,11 +65,24 @@ export class UI {
     onHudHome?: () => void;
     onFuelCrisisBurn?: () => void;
     onFuelCrisisDismiss?: () => void;
+    onMultiplayerLocal?: () => void;
+    onMultiplayerLocalEnter?: () => void;
+    onMultiplayerHost?: (serverUrl: string) => void;
+    onMultiplayerJoin?: (code: string, serverUrl: string) => void;
+    onMultiplayerLaunchOnline?: () => void;
+    onMultiplayerRaceLocal?: () => void;
+    onMultiplayerRaceLocalEnter?: () => void;
+    onMultiplayerRaceHost?: (serverUrl: string) => void;
+    onMultiplayerRaceJoin?: (code: string, serverUrl: string) => void;
+    onMultiplayerRaceLaunch?: () => void;
+    onMultiplayerLobbyClose?: () => void;
+    onRaceExit?: () => void;
   } = {};
   private lastRadarKey = "";
   private lastRadarScan = false;
   private lastPills = "";
   private garageTab: GarageTab = "ships";
+  private garageClickHandler: ((e: Event) => void) | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -158,18 +172,244 @@ export class UI {
     document.getElementById("faq-overlay")?.remove();
   }
 
-  showMultiplayerComingSoon(): void {
-    if (document.getElementById("mp-overlay")) return;
+  showMultiplayerLobby(initialTab: MultiplayerLobbyTab = "online"): void {
+    this.closeMultiplayerLobby();
     const overlay = document.createElement("div");
-    overlay.innerHTML = renderMultiplayerComingSoonHtml();
+    overlay.innerHTML = renderMultiplayerLobbyHtml(undefined, initialTab);
     const el = overlay.firstElementChild as HTMLElement;
     this.root.appendChild(el);
-    el.querySelector(".mp-backdrop")?.addEventListener("click", () => this.closeMultiplayerComingSoon());
-    document.getElementById("btn-mp-close")?.addEventListener("click", () => this.closeMultiplayerComingSoon());
+    this.bindMultiplayerLobby(el);
+  }
+
+  private bindMultiplayerLobby(el: HTMLElement): void {
+    el.querySelector(".mp-backdrop")?.addEventListener("click", () => this.closeMultiplayerLobby());
+    document.getElementById("btn-mp-close")?.addEventListener("click", () => this.closeMultiplayerLobby());
+
+    el.querySelectorAll(".mp-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        sfx.uiClick();
+        const id = (tab as HTMLElement).dataset.mpTab;
+        el.querySelectorAll(".mp-tab").forEach((t) => t.classList.toggle("active", (t as HTMLElement).dataset.mpTab === id));
+        el.querySelectorAll(".mp-tab-panel").forEach((p) => {
+          p.classList.toggle("hidden", (p as HTMLElement).dataset.mpPanel !== id);
+        });
+      });
+    });
+
+    document.getElementById("btn-mp-local")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.handlers.onMultiplayerLocal?.();
+    });
+
+    document.getElementById("btn-mp-local-enter")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.closeMultiplayerLobby();
+      this.handlers.onMultiplayerLocalEnter?.();
+    });
+
+    document.getElementById("btn-mp-host")?.addEventListener("click", () => {
+      sfx.uiClick();
+      const url = (document.getElementById("mp-server") as HTMLInputElement)?.value ?? "";
+      this.handlers.onMultiplayerHost?.(url);
+    });
+
+    document.getElementById("btn-mp-join")?.addEventListener("click", () => {
+      sfx.uiClick();
+      const code = (document.getElementById("mp-code") as HTMLInputElement)?.value ?? "";
+      const url = (document.getElementById("mp-server") as HTMLInputElement)?.value ?? "";
+      this.handlers.onMultiplayerJoin?.(code, url);
+    });
+
+    document.getElementById("btn-mp-launch-online")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.handlers.onMultiplayerLaunchOnline?.();
+    });
+
+    document.getElementById("btn-mp-race-local")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.handlers.onMultiplayerRaceLocal?.();
+    });
+
+    document.getElementById("btn-mp-race-local-enter")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.closeMultiplayerLobby();
+      this.handlers.onMultiplayerRaceLocalEnter?.();
+    });
+
+    document.getElementById("btn-mp-race-host")?.addEventListener("click", () => {
+      sfx.uiClick();
+      const url = (document.getElementById("mp-race-server") as HTMLInputElement)?.value ?? "";
+      this.handlers.onMultiplayerRaceHost?.(url);
+    });
+
+    document.getElementById("btn-mp-race-join")?.addEventListener("click", () => {
+      sfx.uiClick();
+      const code = (document.getElementById("mp-race-code") as HTMLInputElement)?.value ?? "";
+      const url = (document.getElementById("mp-race-server") as HTMLInputElement)?.value ?? "";
+      this.handlers.onMultiplayerRaceJoin?.(code, url);
+    });
+
+    document.getElementById("btn-mp-race-launch")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.handlers.onMultiplayerRaceLaunch?.();
+    });
+  }
+
+  patchMultiplayerRacePeers(count: number): void {
+    const el = document.getElementById("mp-race-room-peers");
+    if (el) el.textContent = count <= 1 ? "Waiting for racers…" : `${count} racers ready`;
+  }
+
+  patchMultiplayerRaceError(message: string): void {
+    const el = document.getElementById("mp-race-error");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  showRaceCountdown(n: number): void {
+    let el = document.getElementById("race-countdown");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "race-countdown";
+      el.className = "race-countdown";
+      this.root.appendChild(el);
+    }
+    if (n <= 0) {
+      el.textContent = "GO!";
+      el.classList.add("race-go");
+      window.setTimeout(() => el?.remove(), 900);
+    } else {
+      el.textContent = String(n);
+      el.classList.remove("race-go");
+    }
+  }
+
+  showRaceLeaderboard(standings: PeerRaceState[], localId: string): void {
+    let board = document.getElementById("race-leaderboard");
+    if (!board) {
+      board = document.createElement("div");
+      board.id = "race-leaderboard";
+      board.className = "race-leaderboard";
+      this.root.appendChild(board);
+    }
+    board.innerHTML = `<span class="race-lb-title">LEADERBOARD</span>${renderRaceLeaderboard(standings, localId)}`;
+  }
+
+  hideRaceUi(): void {
+    document.getElementById("race-leaderboard")?.remove();
+    document.getElementById("race-countdown")?.remove();
+    document.getElementById("race-results-overlay")?.remove();
+  }
+
+  showRaceResults(standings: PeerRaceState[], localId: string): void {
+    const existing = document.getElementById("race-results-overlay");
+    existing?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "race-results-overlay";
+    overlay.className = "race-results-overlay interactive";
+    overlay.innerHTML = renderRaceResults(standings, localId);
+    this.root.appendChild(overlay);
+    document.getElementById("btn-race-home")?.addEventListener("click", () => {
+      sfx.uiClick();
+      this.hideRaceUi();
+      this.handlers.onRaceExit?.();
+    });
+  }
+
+  patchLocalCoopWaiting(count: number): void {
+    document.getElementById("mp-local-wait")?.classList.remove("hidden");
+    document.getElementById("btn-mp-local")?.classList.add("hidden");
+    const el = document.getElementById("mp-local-peers");
+    if (el) {
+      el.textContent =
+        count <= 1 ? "1 scavenger ready — waiting for co-pilot…" : `${count} scavengers ready`;
+    }
+  }
+
+  patchLocalRaceWaiting(count: number): void {
+    document.getElementById("mp-race-local-wait")?.classList.remove("hidden");
+    document.getElementById("btn-mp-race-local")?.classList.add("hidden");
+    const el = document.getElementById("mp-race-local-peers");
+    if (el) {
+      el.textContent = count <= 1 ? "1 racer ready — waiting for opponent…" : `${count} racers ready`;
+    }
+  }
+
+  patchMultiplayerRoom(code: string, role: "host" | "guest"): void {
+    const room = document.getElementById("mp-room");
+    const codeEl = document.getElementById("mp-room-code");
+    const launchBtn = document.getElementById("btn-mp-launch-online");
+    const hint = document.getElementById("mp-room-hint");
+    if (room) room.classList.remove("hidden");
+    if (codeEl) codeEl.textContent = code;
+    document.getElementById("mp-error")?.classList.add("hidden");
+    document.querySelectorAll(".mp-tab").forEach((t) => {
+      t.classList.toggle("active", (t as HTMLElement).dataset.mpTab === "online");
+    });
+    document.querySelectorAll(".mp-tab-panel").forEach((p) => {
+      p.classList.toggle("hidden", (p as HTMLElement).dataset.mpPanel !== "online");
+    });
+    if (role === "host") {
+      launchBtn?.classList.remove("hidden");
+      hint?.classList.add("hidden");
+    } else {
+      launchBtn?.classList.add("hidden");
+      hint?.classList.remove("hidden");
+      if (hint) hint.textContent = "Waiting for host to launch the sector…";
+    }
+  }
+
+  patchMultiplayerRaceRoom(code: string, role: "host" | "guest"): void {
+    document.getElementById("mp-race-room")?.classList.remove("hidden");
+    const codeEl = document.getElementById("mp-race-room-code");
+    const launchBtn = document.getElementById("btn-mp-race-launch");
+    const hint = document.getElementById("mp-race-room-hint");
+    if (codeEl) codeEl.textContent = code;
+    document.getElementById("mp-race-error")?.classList.add("hidden");
+    document.querySelectorAll(".mp-tab").forEach((t) => {
+      t.classList.toggle("active", (t as HTMLElement).dataset.mpTab === "race");
+    });
+    document.querySelectorAll(".mp-tab-panel").forEach((p) => {
+      p.classList.toggle("hidden", (p as HTMLElement).dataset.mpPanel !== "race");
+    });
+    if (role === "host") {
+      launchBtn?.classList.remove("hidden");
+      hint?.classList.add("hidden");
+    } else {
+      launchBtn?.classList.add("hidden");
+      hint?.classList.remove("hidden");
+      if (hint) hint.textContent = "Waiting for host to start the race…";
+    }
+  }
+
+  patchMultiplayerPeers(count: number): void {
+    const el = document.getElementById("mp-room-peers");
+    if (el) {
+      el.textContent =
+        count <= 1 ? "Waiting for co-pilots…" : `${count} scavengers in sector`;
+    }
+  }
+
+  patchMultiplayerError(message: string): void {
+    const el = document.getElementById("mp-error");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  closeMultiplayerLobby(): void {
+    document.getElementById("mp-overlay")?.remove();
+    this.handlers.onMultiplayerLobbyClose?.();
+  }
+
+  /** @deprecated use showMultiplayerLobby */
+  showMultiplayerComingSoon(): void {
+    this.showMultiplayerLobby();
   }
 
   closeMultiplayerComingSoon(): void {
-    document.getElementById("mp-overlay")?.remove();
+    this.closeMultiplayerLobby();
   }
 
   private faqBtn(): string {
@@ -191,7 +431,9 @@ export class UI {
   }
 
   private async refreshHomeTokenData(save: PlayerSave): Promise<void> {
-    const stats = mintConfigured ? await fetchPumpStats(PUMP_MINT) : null;
+    const stats = mintConfigured
+      ? await import("../chain/pumpPrice").then((m) => m.fetchPumpStats(PUMP_MINT))
+      : null;
     await walletService.refreshBalance();
     if (!document.getElementById("home-token-panel")) return;
     patchTokenPanel(buildHomeTokenView(stats));
@@ -287,34 +529,19 @@ export class UI {
       hud = document.createElement("div");
       hud.id = "tutorial-hud";
       hud.className = "tutorial-hud";
-      hud.innerHTML = `
-        <div class="tutorial-card">
-          <div class="tutorial-step-label" id="tut-label"></div>
-          <div class="tutorial-step-title" id="tut-title"></div>
-          <div class="tutorial-step-hint" id="tut-hint"></div>
-          <div class="tutorial-progress"><div class="tutorial-progress-fill" id="tut-progress"></div></div>
-        </div>`;
       this.root.appendChild(hud);
 
       if (!document.getElementById("tutorial-tag")) {
         const tag = document.createElement("div");
         tag.id = "tutorial-tag";
         tag.className = "tutorial-training-tag";
-        tag.textContent = "TRAINING LANE";
         this.root.appendChild(tag);
       }
     }
 
-    const step = tutorial.step;
-    const set = (id: string, text: string) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = text;
-    };
-    set("tut-label", `STEP ${tutorial.stepIndex + 1} / 5`);
-    set("tut-title", step.title);
-    set("tut-hint", step.hint);
-    const bar = document.getElementById("tut-progress");
-    if (bar) bar.style.width = `${tutorial.progress * 100}%`;
+    hud.innerHTML = renderTutorialHudHtml(tutorial);
+    const tag = document.getElementById("tutorial-tag");
+    if (tag) tag.innerHTML = renderTutorialTagHtml();
   }
 
   private bindHomeControls(_save: PlayerSave): void {
@@ -328,6 +555,9 @@ export class UI {
       });
     });
 
+    document.getElementById("btn-social-discord")?.addEventListener("click", () => {
+      this.showToast("Discord coming soon — follow us on X for updates");
+    });
     document.getElementById("btn-faq-footer")?.addEventListener("click", () => this.openFaq());
     document.getElementById("btn-news-all")?.addEventListener("click", () => this.openFaq());
     document.getElementById("btn-connect-wallet")?.addEventListener("click", () => {
@@ -342,73 +572,136 @@ export class UI {
     this.garageTab = "ships";
   }
 
-  showGarage(paint: ShipPaint, faction: FactionId, shape: ShipShapeId, credits: number): void {
-    this.root.innerHTML = renderGarageHtml(paint, faction, shape, credits, this.garageTab);
-    this.bindGarageControls(paint, faction, shape);
+  showGarage(save: PlayerSave, paint: ShipPaint, faction: FactionId, shape: ShipShapeId, dirty = false): void {
+    this.root.innerHTML = renderGarageHtml(save, paint, faction, shape, save.credits, this.garageTab, dirty);
+    this.bindGarageControls();
   }
 
-  patchGaragePaint(paint: ShipPaint): void {
+  patchGarageDirty(dirty: boolean): void {
+    document.getElementById("gar-dirty-badge")?.classList.toggle("hidden", !dirty);
+  }
+
+  /** Update stat readouts after hull swap without rebuilding the whole panel. */
+  patchGarageShape(shape: ShipShapeId, save: PlayerSave, faction: FactionId): void {
+    if (!this.root.querySelector(".garage-premium") || !save) return;
+    const live = computeLiveGarageStats(save, shape, faction);
+    const shapeInfo = SHIP_SHAPES[shape];
+
+    const nameEl = document.getElementById("gar-ship-name");
+    const classEl = document.getElementById("gar-ship-class");
+    if (nameEl) nameEl.textContent = live.label;
+    if (classEl) classEl.textContent = shapeInfo.tag;
+
+    const statBar = document.getElementById("gar-stat-bar");
+    if (statBar) statBar.innerHTML = renderGarageStatBar(live);
+
+    const statList = document.getElementById("gar-stat-list");
+    if (statList) statList.innerHTML = renderGarageStatList(live);
+
+    const equipped = document.getElementById("gar-equipped");
+    if (equipped) {
+      equipped.innerHTML = live.equipped
+        .map((e) => `<li class="equipped-item"><span class="eq-dot"></span>${e}</li>`)
+        .join("");
+    }
+
+    this.root.querySelectorAll("[data-shape]").forEach((el) => {
+      el.classList.toggle("selected", (el as HTMLElement).dataset.shape === shape);
+    });
+  }
+
+  patchGarageFaction(faction: FactionId): void {
+    if (!this.root.querySelector(".garage-premium")) return;
+    this.root.querySelectorAll("[data-faction]").forEach((el) => {
+      el.classList.toggle("selected", (el as HTMLElement).dataset.faction === faction);
+    });
+  }
+
+  patchGarageRig(paint: ShipPaint): void {
     if (!this.root.querySelector(".garage-premium")) return;
 
-    this.root.querySelectorAll(".skin-tile").forEach((el) => {
-      const tile = el as HTMLElement;
-      tile.classList.toggle("selected", tile.dataset.skin === paint.skin);
-    });
-
-    this.root.querySelectorAll(".palette-swatch").forEach((el) => {
+    this.root.querySelectorAll(".palette-swatch[data-rig]").forEach((el) => {
       const btn = el as HTMLElement;
-      const part = btn.dataset.part as PaintPart | undefined;
+      const slot = btn.dataset.rig as RigSlot | undefined;
       const color = Number(btn.dataset.color);
-      if (!part) return;
-      btn.classList.toggle("active", paint[part] === color);
-    });
-
-    this.root.querySelectorAll(".paint-zone").forEach((zone) => {
-      const swatch = zone.querySelector(".paint-zone-current") as HTMLElement | null;
-      const part = zone.querySelector(".palette-swatch")?.getAttribute("data-part") as PaintPart | null;
-      if (swatch && part) swatch.style.background = paintToHex(paint[part]);
+      if (!slot || !Number.isFinite(color)) return;
+      const active = slot === "engine" ? paint.engine === color : paint.glow === color;
+      btn.classList.toggle("active", active);
     });
   }
 
-  private bindGarageControls(paint: ShipPaint, faction: FactionId, shape: ShipShapeId): void {
-    const root = this.root;
+  private bindGarageControls(): void {
+    const root = document.getElementById("garage-root");
+    if (!root) return;
 
-    root.querySelectorAll(".gar-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const id = (tab as HTMLElement).dataset.tab as GarageTab;
+    if (this.garageClickHandler) {
+      root.removeEventListener("click", this.garageClickHandler);
+    }
+
+    this.garageClickHandler = (e) => {
+      const target = e.target as HTMLElement;
+
+      const tab = target.closest(".gar-tab") as HTMLElement | null;
+      if (tab?.dataset.tab) {
+        sfx.uiClick();
+        const id = tab.dataset.tab as GarageTab;
         this.garageTab = id;
         root.querySelectorAll(".gar-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         root.querySelectorAll(".gar-tab-panel").forEach((p) => {
           p.classList.toggle("hidden", (p as HTMLElement).dataset.panel !== id);
         });
-      });
-    });
+        return;
+      }
 
-    root.querySelectorAll("[data-shape]").forEach((el) => {
-      el.addEventListener("click", () => this.handlers.onGarageShape?.((el as HTMLElement).dataset.shape as ShipShapeId));
-    });
-    root.querySelectorAll("[data-skin]").forEach((el) => {
-      el.addEventListener("click", () => this.handlers.onGarageSkin?.((el as HTMLElement).dataset.skin!));
-    });
-    root.querySelectorAll(".palette-swatch").forEach((el) => {
-      el.addEventListener("click", () => {
-        const btn = el as HTMLElement;
-        const part = btn.dataset.part as PaintPart;
-        const color = Number(btn.dataset.color);
-        if (part && Number.isFinite(color)) this.handlers.onGarageColor?.(part, color);
-      });
-    });
-    root.querySelectorAll("[data-faction]").forEach((el) => {
-      el.addEventListener("click", () => this.handlers.onGarageFaction?.((el as HTMLElement).dataset.faction as FactionId));
-    });
-    document.getElementById("btn-random")?.addEventListener("click", () => this.handlers.onGarageRandom?.());
-    document.getElementById("btn-save")?.addEventListener("click", () => this.handlers.onGarageSave?.());
-    document.getElementById("btn-launch")?.addEventListener("click", () => {
-      this.handlers.onGarageLaunch?.(faction, paint, shape);
-    });
-    document.getElementById("btn-home")?.addEventListener("click", () => this.handlers.onGarageHome?.());
-    document.getElementById("btn-faq")?.addEventListener("click", () => this.openFaq());
+      const shapeBtn = target.closest("[data-shape]") as HTMLElement | null;
+      if (shapeBtn?.dataset.shape) {
+        sfx.uiClick();
+        this.handlers.onGarageShape?.(shapeBtn.dataset.shape as ShipShapeId);
+        return;
+      }
+
+      const rigSwatch = target.closest(".palette-swatch[data-rig]") as HTMLElement | null;
+      if (rigSwatch?.dataset.rig) {
+        sfx.uiClick();
+        const slot = rigSwatch.dataset.rig as RigSlot;
+        const color = Number(rigSwatch.dataset.color);
+        if (Number.isFinite(color)) this.handlers.onGarageRig?.(slot, color);
+        return;
+      }
+
+      const factionBtn = target.closest("[data-faction]") as HTMLElement | null;
+      if (factionBtn?.dataset.faction) {
+        sfx.uiClick();
+        this.handlers.onGarageFaction?.(factionBtn.dataset.faction as FactionId);
+        return;
+      }
+
+      if (target.closest("#btn-save")) {
+        sfx.uiClick();
+        this.handlers.onGarageSave?.();
+        return;
+      }
+      if (target.closest("#btn-launch")) {
+        sfx.uiClick();
+        this.handlers.onGarageLaunch?.();
+        return;
+      }
+      if (target.closest("#btn-home")) {
+        sfx.uiClick();
+        this.handlers.onGarageHome?.();
+        return;
+      }
+      if (target.closest("#btn-faq")) {
+        this.openFaq();
+        return;
+      }
+      if (target.closest("#btn-slot-lock")) {
+        this.showToast("Extra ship slots coming soon");
+      }
+    };
+
+    root.addEventListener("click", this.garageClickHandler);
   }
 
   showHUD(
@@ -651,12 +944,21 @@ export class UI {
       mine: "mine", act: "interact", dock: "dock", scan: "scan",
     };
     controls.querySelectorAll(".mob-btn").forEach((btn) => {
-      const field = map[(btn as HTMLElement).dataset.m!];
-      const down = () => { input.mobile[field] = true; };
-      const up = () => { input.mobile[field] = false; };
-      btn.addEventListener("pointerdown", (e) => { e.preventDefault(); down(); });
-      btn.addEventListener("pointerup", up);
-      btn.addEventListener("pointerleave", up);
+      const el = btn as HTMLElement;
+      const field = map[el.dataset.m!];
+      const down = (e: Event) => {
+        e.preventDefault();
+        input.mobile[field] = true;
+        el.classList.add("mob-btn-active");
+      };
+      const up = () => {
+        input.mobile[field] = false;
+        el.classList.remove("mob-btn-active");
+      };
+      el.addEventListener("pointerdown", down);
+      el.addEventListener("pointerup", up);
+      el.addEventListener("pointercancel", up);
+      el.addEventListener("pointerleave", up);
     });
   }
 
@@ -664,21 +966,33 @@ export class UI {
     const el = document.getElementById("mobile-controls");
     if (!el) return;
     el.innerHTML = `
-      <div class="mob-dpad">
-        <button class="mob-btn" data-m="left">◀</button>
-        <button class="mob-btn" data-m="up">▲</button>
-        <button class="mob-btn" data-m="down">▼</button>
-        <button class="mob-btn" data-m="right">▶</button>
+      <div class="mob-cluster mob-cluster--fly">
+        <span class="mob-cluster-label">FLY</span>
+        <div class="mob-dpad">
+          <button type="button" class="mob-btn mob-btn-lg" data-m="up" aria-label="Thrust">▲</button>
+          <div class="mob-dpad-mid">
+            <button type="button" class="mob-btn mob-btn-lg" data-m="left" aria-label="Turn left">◀</button>
+            <button type="button" class="mob-btn mob-btn-lg" data-m="down" aria-label="Brake">▼</button>
+            <button type="button" class="mob-btn mob-btn-lg" data-m="right" aria-label="Turn right">▶</button>
+          </div>
+        </div>
+        <div class="mob-row">
+          <button type="button" class="mob-btn" data-m="pu" aria-label="Pitch up">R</button>
+          <button type="button" class="mob-btn" data-m="pd" aria-label="Pitch down">F</button>
+          <button type="button" class="mob-btn" data-m="su" aria-label="Ascend">Q</button>
+          <button type="button" class="mob-btn mob-btn-boost" data-m="boost" aria-label="Boost">⚡</button>
+        </div>
       </div>
-      <div class="mob-actions">
-        <button class="mob-btn" data-m="pu">R</button>
-        <button class="mob-btn" data-m="pd">F</button>
-        <button class="mob-btn" data-m="su">Q</button>
-        <button class="mob-btn boost" data-m="boost">⚡</button>
-        <button class="mob-btn" data-m="mine">⛏</button>
-        <button class="mob-btn" data-m="act">E</button>
-        <button class="mob-btn dock" data-m="dock">G</button>
-        <button class="mob-btn" data-m="scan">⌖</button>
+      <div class="mob-cluster mob-cluster--act">
+        <span class="mob-cluster-label">ACTIONS</span>
+        <div class="mob-row">
+          <button type="button" class="mob-btn mob-btn-action" data-m="scan" aria-label="Scan">SCAN</button>
+          <button type="button" class="mob-btn mob-btn-action mob-btn-mine" data-m="mine" aria-label="Mine">MINE</button>
+        </div>
+        <div class="mob-row">
+          <button type="button" class="mob-btn mob-btn-action mob-btn-salvage" data-m="act" aria-label="Salvage hold">SALVAGE</button>
+          <button type="button" class="mob-btn mob-btn-action mob-btn-dock" data-m="dock" aria-label="Dock">DOCK</button>
+        </div>
       </div>`;
   }
 }

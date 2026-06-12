@@ -1,4 +1,5 @@
 import type { PlayerSave } from "../game/types";
+import { APP_VERSION } from "../version";
 
 export function renderSettingsHtml(save: PlayerSave): string {
   const soundOn = save.sfxEnabled !== false;
@@ -46,6 +47,8 @@ export function renderSettingsHtml(save: PlayerSave): string {
           <p class="settings-note">Reset wipes credits, cargo, upgrades, and sector progress. Faction and ship paint are kept.</p>
           <button class="settings-btn settings-btn-danger interactive" id="btn-reset-save">RESET PROGRESS</button>
         </section>
+
+        <p class="settings-version">Space Salvagers v${APP_VERSION}</p>
       </div>
     </div>`;
 }

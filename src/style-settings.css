@@ -212,3 +212,12 @@
 }
 
 .settings-danger .settings-section-title { color: #ff8888; }
+
+.settings-version {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
+  color: #5a6a80;
+}
