@@ -1,0 +1,199 @@
+.intro-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.intro-screen .interactive { pointer-events: auto; }
+
+.intro-bg {
+  position: absolute;
+  inset: 0;
+  background: url("/home-bg.png") center center / cover no-repeat;
+  transform: scale(1.03);
+}
+
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 18, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.intro-panel {
+  position: relative;
+  z-index: 2;
+  width: min(520px, 92vw);
+  padding: 2rem 2.2rem;
+  border-radius: 12px;
+  background: rgba(12, 16, 28, 0.92);
+  border: 1px solid rgba(255, 184, 0, 0.25);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.intro-tag {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #ffb800;
+  margin-bottom: 0.75rem;
+}
+
+.intro-title {
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-weight: 900;
+  color: #f0f6ff;
+  margin: 0 0 1rem;
+  letter-spacing: 0.06em;
+}
+
+.intro-body {
+  font-size: clamp(0.85rem, 2vw, 0.95rem);
+  line-height: 1.55;
+  color: #b8c8e0;
+  margin: 0 0 1.5rem;
+}
+
+.intro-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.intro-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(136, 170, 210, 0.3);
+}
+
+.intro-dot.active {
+  background: #ffb800;
+  box-shadow: 0 0 8px rgba(255, 184, 0, 0.6);
+}
+
+.intro-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.intro-btn {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 0.75rem 1.4rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.intro-btn:hover { transform: translateY(-1px); }
+
+.intro-primary {
+  background: linear-gradient(180deg, #ffc233, #d89800);
+  color: #1a1200;
+  border-color: rgba(255, 220, 120, 0.5);
+  box-shadow: 0 4px 20px rgba(255, 184, 0, 0.3);
+}
+
+.intro-ghost {
+  background: rgba(24, 32, 48, 0.8);
+  color: #a8c0e0;
+  border-color: rgba(120, 150, 190, 0.35);
+}
+
+.intro-skip {
+  display: block;
+  margin: 1rem auto 0;
+  background: none;
+  border: none;
+  color: #6a8098;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.intro-skip:hover { color: #a8c0e0; }
+
+/* Training HUD overlay */
+.tutorial-hud {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 94vw);
+  z-index: 15;
+  pointer-events: none;
+}
+
+.tutorial-card {
+  background: rgba(10, 14, 24, 0.88);
+  border: 1px solid rgba(255, 184, 0, 0.35);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tutorial-step-label {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.48rem;
+  letter-spacing: 0.16em;
+  color: #ffb800;
+  margin-bottom: 0.35rem;
+}
+
+.tutorial-step-title {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e8f0ff;
+  margin-bottom: 0.35rem;
+}
+
+.tutorial-step-hint {
+  font-size: 0.68rem;
+  color: #88aacc;
+  margin-bottom: 0.55rem;
+}
+
+.tutorial-progress {
+  height: 5px;
+  background: rgba(20, 30, 48, 0.9);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tutorial-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffb800, #ffd04d);
+  transition: width 0.3s;
+}
+
+.tutorial-training-tag {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: #ffb800;
+  background: rgba(10, 14, 24, 0.8);
+  border: 1px solid rgba(255, 184, 0, 0.35);
+  padding: 0.35rem 0.65rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
