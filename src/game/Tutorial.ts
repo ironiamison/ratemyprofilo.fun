@@ -27,8 +27,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "mine",
     title: "Strip the rock",
-    body: "Ore pays the bills. Fly to the glowing asteroid ahead and carve it up.",
-    hint: "Hold SPACE when close to the asteroid",
+    body: "Ore pays the bills. Fly toward the gold beacons — training asteroids are dead ahead.",
+    hint: "Fly to the gold beacon · hold SPACE within 14m to mine",
     check: (s) => s.cargo.ore > 0 || s.oreMined > 0,
   },
   {

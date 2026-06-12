@@ -10,7 +10,7 @@ import { MiningBeam } from "../effects/MiningBeam";
 import type { Input } from "../game/Input";
 import { FACTIONS, WRECK_DEFS, type FactionId, type PlayerSave, type RadarPOI } from "../game/types";
 import { SpaceBackdrop } from "../visuals/SpaceBackdrop";
-import { seededRandom } from "../utils/voxel";
+import { addGlow, seededRandom } from "../utils/voxel";
 import { createStarfield } from "./Starfield";
 
 export type SectorAction = "dock" | null;
@@ -108,23 +108,53 @@ export class Sector {
   private setupTraining(): void {
     this.ship.position.set(0, 0, 0);
     this.ship.group.position.copy(this.ship.position);
+    this.ship.yaw = 0;
+    this.ship.group.rotation.set(0, 0, 0, "YXZ");
 
     for (const ast of this.asteroids) this.group.remove(ast.group);
     this.asteroids = [];
-    const trainRock = new Asteroid(0, 1, 32, this.seed, 900);
-    this.asteroids.push(trainRock);
-    this.group.add(trainRock.group);
+
+    const rockSpots: [number, number, number][] = [
+      [0, 0, 18],
+      [-14, 1, 26],
+      [14, 1, 26],
+      [-8, 2, 34],
+      [10, 0, 38],
+    ];
+    for (let i = 0; i < rockSpots.length; i++) {
+      const [x, y, z] = rockSpots[i];
+      const ast = new Asteroid(x, y, z, this.seed, 900 + i);
+      ast.maxOre = 48;
+      ast.ore = 48;
+      addGlow(ast.group, 0.45, 5, 0.45, 0xffcc44, 0, 0, 0, 0.75);
+      this.asteroids.push(ast);
+      this.group.add(ast.group);
+    }
 
     for (let i = 1; i < this.wrecks.length; i++) {
       this.wrecks[i].salvaged = true;
       this.wrecks[i].group.visible = false;
     }
     const wreck = this.wrecks[0];
-    wreck.position.set(-8, 0, 58);
+    wreck.position.set(-10, 0, 52);
     wreck.group.position.copy(wreck.position);
 
-    this.station.position.set(42, 0, 28);
+    this.station.position.set(32, 0, 48);
     this.station.group.position.copy(this.station.position);
+  }
+
+  private nearestLiveAsteroid(): Asteroid | null {
+    let best: Asteroid | null = null;
+    let bestDist = Infinity;
+    for (const ast of this.asteroids) {
+      if (ast.depleted) continue;
+      const d = ast.distanceTo(this.ship.position);
+      if (d < bestDist) {
+        bestDist = d;
+        best = ast;
+      }
+    }
+    return best;
   }
 
   private spawnAsteroids(): void {
@@ -414,7 +444,13 @@ export class Sector {
       if (ast.depleted) continue;
       const d = ast.distanceTo(shipPos);
       if (d > 90) continue;
-      add(`ast-${ast.id}`, "Rock", ast.position, "#c8a070", "asteroid");
+      add(
+        `ast-${ast.id}`,
+        this.training ? "Training rock" : "Rock",
+        ast.position,
+        "#c8a070",
+        "asteroid"
+      );
     }
 
     for (const w of this.wrecks) {
@@ -464,7 +500,17 @@ export class Sector {
   }
 
   getHint(save: PlayerSave, tutorialHint?: string): string {
-    if (tutorialHint) return tutorialHint;
+    if (tutorialHint) {
+      if (this.training && tutorialHint.toLowerCase().includes("space")) {
+        const rock = this.nearestLiveAsteroid();
+        if (rock) {
+          const d = Math.round(rock.distanceTo(this.ship.position));
+          if (d > 14) return `${tutorialHint} · fly to gold beacon (${d}m)`;
+          return `${tutorialHint} · in range — hold SPACE now`;
+        }
+      }
+      return tutorialHint;
+    }
     const d = this.state.nearestDist;
     if (save.fuel <= 0) return "Out of fuel — drift to station or buy fuel when docked";
     if (save.hull <= 0) return "Hull critical — dock for repairs (G at K-7)";

@@ -363,7 +363,7 @@ export class Game {
     this.ui.bindMobile(this.input);
     this.focusFlight();
     sfx.startAmbient();
-    this.ui.showToast("WASD to fly · click the game view if keys don't respond");
+    this.ui.showToast("Training rocks ahead with gold beacons · WASD to fly");
   }
 
   private finishTraining(): void {
