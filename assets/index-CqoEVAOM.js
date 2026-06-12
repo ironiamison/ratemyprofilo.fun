@@ -4399,7 +4399,8 @@ Message: ${n}.
 
       <header class="home-brand">
         <h1 class="home-title">
-          <img class="home-logo" src="/logo.png" alt="Space Salvagers" width="420" height="280" />
+          <span class="title-space">SPACE</span>
+          <span class="title-salvagers">SALVAGERS</span>
         </h1>
         <div class="home-title-rule">
           <span class="rule-line"></span>
