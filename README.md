@@ -2,7 +2,7 @@
 
 **The galaxy is full of dead people's stuff. Go get it.**
 
-Browser-based space scavenger MMO at [spacescavenger.com](https://spacescavenger.com). Explore a procedural sector, mine asteroids, loot abandoned wrecks, upgrade your ship at the station, and fly alongside other scavengers.
+Browser-based space scavenger MMO at [spacesalvagers.com](https://spacesalvagers.com). Explore a procedural sector, mine asteroids, loot abandoned wrecks, upgrade your ship at the station, and fly alongside other scavengers.
 
 ## Play
 

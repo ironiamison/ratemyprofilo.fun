@@ -210,7 +210,7 @@ export function renderMarketHtml(save: PlayerSave): string {
               </div>
             </section>
 
-            <p class="mkt-foot">CR = in-game credits (off-chain). $SALVAGE = community token (home screen). spacescavenger.com · Selling floods supply and lowers prices next cycle. Ship upgrades need docking at K-7 in-sector (G).</p>
+            <p class="mkt-foot">CR = in-game credits (off-chain). $SALVAGE = community token (home screen). spacesalvagers.com · Selling floods supply and lowers prices next cycle. Ship upgrades need docking at K-7 in-sector (G).</p>
           </aside>
         </div>
       </div>
