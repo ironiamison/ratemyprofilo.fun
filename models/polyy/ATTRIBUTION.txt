@@ -1,0 +1,14 @@
+Ship hull models from Polyy.AI "3D Spaceships Pack" (CC0 1.0)
+https://polyyai.itch.io/3d-spaceships-pack
+
+No attribution required. Credit "Polyy.AI" appreciated.
+
+Models used (from pack numbering):
+  hauler  → 15.glb
+  wedge   → 26.glb
+  brick   → 16.glb
+  needle  →  8.glb
+  hammer  → 32.glb
+
+Salvage equipment (mining laser, claws, scanners, exhaust) are procedural game geometry layered on top.
+Kenney Space Kit props are used for hangar platforms and environment debris.
