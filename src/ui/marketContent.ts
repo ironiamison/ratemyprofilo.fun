@@ -139,7 +139,7 @@ export function renderMarketHtml(save: PlayerSave): string {
           <div class="mkt-main">
             <section class="mkt-guide">
               <div class="mkt-guide-header">
-                <h2>SCAVENGER'S HANDBOOK</h2>
+                <h2>SALVAGER'S HANDBOOK</h2>
                 <p>How to turn space trash into Credits (CR) — explained like flight school, but for greed.</p>
               </div>
               <div class="mkt-guide-steps">${loopSteps}</div>

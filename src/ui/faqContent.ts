@@ -17,12 +17,12 @@ export function getFaqHtml(): string {
   return `
     <div class="faq-panel interactive">
       <button class="faq-close interactive" id="faq-close" aria-label="Close">✕</button>
-      <h2>SCAVENGER FIELD MANUAL</h2>
+      <h2>SALVAGER FIELD MANUAL</h2>
       <p class="faq-intro">Everything you need to strip Sector K-7 clean.</p>
 
       <section>
         <h3>What is this?</h3>
-        <p>Space Scavenger is a browser space scavenger game. Fly a sector, mine asteroids, loot abandoned wrecks, sell cargo at the station, upgrade your ship, and complete contracts for credits. Progress saves automatically.</p>
+        <p>Space Salvagers is a browser space salvage game. Fly a sector, mine asteroids, loot abandoned wrecks, sell cargo at the station, upgrade your ship, and complete contracts for credits. Progress saves automatically.</p>
       </section>
 
       <section>
